@@ -1,5 +1,7 @@
 # Lightwell
 
+**v0.1 beta**
+
 A dependency-free, seedable stained-glass generator for artists and web designers. Choose a global HSV color family, then click individual glass tiles to override their color and add a a curated library of 35 motifs silhouette with independent color, opacity, scale, and X/Y position, plus deterministic panel-wide mica shimmer amount, brightness, density, chaotic two-color mixing, and opacity. Global controls can apply a silhouette and transform to all tiles at once. Toggle portrait or landscape, control tessellation down to five pieces, lead width, glass/lead/mica/motif opacity, and choose Ink, Lightning, Straight, Wavy, Branch, or Crackle lead styles, then export the composed SVG.
 
 ## Run
@@ -28,3 +30,8 @@ Export the glass SVG, place your silhouette behind it with CSS or an editor, and
 SVG silhouette imports strip scripts, `foreignObject`, event handlers, and external references before preview. For public deployments, keep a restrictive Content Security Policy too.
 
 MIT licensed. Contributions, new export adapters, accessibility improvements, and geometry modes are welcome.
+
+
+## Beta status
+
+Lightwell is in public beta. The current motif library is being replaced with a more coherent art-nouveau set in the next update. See [CHANGELOG.md](CHANGELOG.md) for release notes and [CONTRIBUTING.md](CONTRIBUTING.md) to contribute.
