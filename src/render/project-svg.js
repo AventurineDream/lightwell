@@ -15,7 +15,6 @@ export function renderProjectSVG(input){
   svg=svg.replace(">\u003cdefs",`><title>${escapeText(project.geometry.seed)} - Lightwell stained glass</title><desc>Deterministic Lightwell project, schema version ${project.version}</desc><metadata>${escapeText(canonical)}</metadata><defs`);
   svg=svg.replace(/(<rect width="100%"[^>]*>)/,`<g id="${prefix}-background" data-lightwell-layer="background">$1</g>`);
   svg=svg.replace(/(<ellipse cx="48%"[^>]*>)/,`<g id="${prefix}-lighting" data-lightwell-layer="lighting">$1</g>`);
-  svg=svg.replace(/(<g [^>]*stroke-opacity[^>]*>.*?<\/g>)(<g opacity=)/,`<g id="${prefix}-glass-artwork" data-lightwell-layer="glass-artwork">$1</g><g id="${prefix}-lead-effects" data-lightwell-layer="lead-effects">$2`);
   svg=svg.replace(/(<rect x="[^>]+pointer-events="none"[^>]*>)(<\/svg>)$/,`<g id="${prefix}-frame" data-lightwell-layer="frame">$1</g>$2`);
   return svg;
 }
