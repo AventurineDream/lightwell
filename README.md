@@ -1,6 +1,6 @@
 # Lightwell
 
-A dependency-free, seedable stained-glass generator for artists and web designers. Choose a global HSV color family, then click individual glass tiles to override their color and add a a curated library of 35 motifs silhouette with independent color, opacity, scale, and X/Y position, plus deterministic per-tile mica shimmer amount, brightness, and density. Global controls can apply a silhouette and transform to all tiles at once. Toggle portrait or landscape, control tessellation and lead width, and choose Ink, Lightning, Straight, Wavy, Branch, or Crackle lead styles, then export the composed SVG.
+A dependency-free, seedable stained-glass generator for artists and web designers. Choose a global HSV color family, then click individual glass tiles to override their color and add a a curated library of 35 motifs silhouette with independent color, opacity, scale, and X/Y position, plus deterministic panel-wide mica shimmer amount, brightness, and density. Global controls can apply a silhouette and transform to all tiles at once. Toggle portrait or landscape, control tessellation and lead width, and choose Ink, Lightning, Straight, Wavy, Branch, or Crackle lead styles, then export the composed SVG.
 
 ## Run
 
