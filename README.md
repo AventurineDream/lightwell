@@ -35,3 +35,9 @@ MIT licensed. Contributions, new export adapters, accessibility improvements, an
 ## Beta status
 
 Lightwell is in public beta. The current motif library is being replaced with a more coherent art-nouveau set in the next update. See [CHANGELOG.md](CHANGELOG.md) for release notes and [CONTRIBUTING.md](CONTRIBUTING.md) to contribute.
+
+## Project files and SVG structure
+
+Save/Open uses validated `.lightwell.json` project files. Loaded geometry, materials, and every per-tile override are normalized before they reach preview or export. The live editor, undo/redo, project save/load, preview, and SVG export all read the same canonical project state.
+
+Composed SVG export includes glass, mica, and motif artwork in stable semantic groups: `background`, `glass`, `mica`, `motifs`, `lead`, `lighting`, and `frame`. Standalone exports are byte-deterministic. Embedders that inline multiple identical exports can request an instance namespace through the renderer API to avoid duplicate document IDs while retaining the same project identity.
