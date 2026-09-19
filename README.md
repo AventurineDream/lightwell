@@ -1,6 +1,6 @@
 # Lightwell
 
-A dependency-free, seedable stained-glass generator for artists and web designers. Choose any color with the native color wheel, tune hue/saturation/value directly, control tessellation and lead width, and preview your own SVG silhouette behind translucent glass.
+A dependency-free, seedable stained-glass generator for artists and web designers. Choose any color with the native color wheel, tune hue/saturation/value directly, control tessellation and lead width, and preview built-in silhouette studies or your own sanitized SVG behind translucent glass.
 
 ## Run
 
