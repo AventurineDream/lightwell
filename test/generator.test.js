@@ -10,3 +10,21 @@ test("all six lead styles are deterministic and distinct",()=>{assert.equal(lead
 test("crack and mica gradients preserve both selected colors",()=>{const svg=panelToSVG(makePanel({seed:"gradients",crackColor1:"#123456",crackColor2:"#abcdef",mica:90,micaColor1:"#fedcba",micaColor2:"#654321"}));for(const color of ["#123456","#abcdef","#fedcba","#654321"])assert.match(svg,new RegExp(color));assert.match(svg,/id="crackChaos"/);assert.match(svg,/id="micaChaos"/);assert.match(svg,/fill="url\(#micaChaos\)"/)})
 
 test("five-piece panels and material opacity export",()=>{const p=makePanel({seed:"five",cells:5,glassOpacity:42,crackOpacity:37,mica:80,micaOpacity:31});assert.equal(p.polygons.length,5);const svg=panelToSVG(p,{0:{silhouette:"moth",opacity:.28}});assert.match(svg,/stroke-opacity="0.37"/);assert.match(svg,/opacity="0.3[0-9]"/);assert.match(svg,/class="motif"/);assert.match(svg,/opacity="0.28"/)})
+
+import { confirmDestructive, decodeSeedHash, hasTileEdits } from "../src/guardrails.js";
+
+test("destructive actions require confirmation only when tile edits exist", () => {
+  assert.equal(hasTileEdits({}), false);
+  assert.equal(hasTileEdits({ 2: { color: "#ff0000" } }), true);
+  let prompts = 0;
+  assert.equal(confirmDestructive(false, () => { prompts++; return false; }), true);
+  assert.equal(prompts, 0);
+  assert.equal(confirmDestructive(true, () => { prompts++; return false; }), false);
+  assert.equal(prompts, 1);
+});
+
+test("malformed seed hashes fall back instead of throwing", () => {
+  assert.equal(decodeSeedHash("#violet%20glass"), "violet glass");
+  assert.equal(decodeSeedHash("#%"), "different forms, one curious practice");
+  assert.equal(decodeSeedHash("#", "fallback"), "fallback");
+});

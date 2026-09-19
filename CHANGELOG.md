@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.1 - 2026-09-18
+
+- Correct documentation for local operation, fonts, export, and SVG imports.
+- Warn before actions that discard per-tile edits.
+- Recover safely from malformed seed hashes.
+- Expose orientation state to assistive technology.
+- Align package metadata with the public release.
+
 ## v0.1 beta - 2026-09-18
 
 Lightwell's first public beta.
