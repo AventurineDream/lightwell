@@ -1,3 +1,4 @@
+import { MOTIF_ID_SET } from "../catalog/motif-ids.js";
 export const PROJECT_SCHEMA = "lightwell.project";
 export const PROJECT_VERSION = 2;
 
@@ -11,6 +12,26 @@ const defaults = Object.freeze({
 const clamp=(value,min,max,fallback)=>Number.isFinite(Number(value))?Math.min(max,Math.max(min,Number(value))):fallback;
 const color=(value,fallback)=>/^#[0-9a-f]{6}$/i.test(String(value))?String(value).toLowerCase():fallback;
 const clone=value=>JSON.parse(JSON.stringify(value));
+const tileKeys=new Set(["color","silhouette","silhouetteColor","opacity","scale","positionX","positionY"]);
+export function normalizeTileOverrides(value={}) {
+  if(!value||typeof value!=="object"||Array.isArray(value))return{};
+  const result={};
+  for(const [rawKey,raw] of Object.entries(value)){
+    if(!/^[a-z0-9_-]{1,64}$/i.test(rawKey)||!raw||typeof raw!=="object"||Array.isArray(raw))continue;
+    const unknown=Object.keys(raw).filter(key=>!tileKeys.has(key));
+    if(unknown.length)throw new TypeError(`Unknown tile override key: ${unknown[0]}`);
+    const tile={};
+    if("color" in raw)tile.color=color(raw.color,"#9b70b4");
+    if("silhouette" in raw)tile.silhouette=MOTIF_ID_SET.has(raw.silhouette)?raw.silhouette:"none";
+    if("silhouetteColor" in raw)tile.silhouetteColor=color(raw.silhouetteColor,"#171019");
+    if("opacity" in raw)tile.opacity=clamp(raw.opacity,0,1,.72);
+    if("scale" in raw)tile.scale=clamp(raw.scale,.2,3,1);
+    if("positionX" in raw)tile.positionX=clamp(raw.positionX,-100,100,0);
+    if("positionY" in raw)tile.positionY=clamp(raw.positionY,-100,100,0);
+    if(Object.keys(tile).length)result[rawKey]=tile;
+  }
+  return result;
+}
 
 export function createProject(input={}) {
   const d={...defaults,...input};
@@ -25,7 +46,7 @@ export function createProject(input={}) {
       mica:{amount:clamp(d.micaAmount,0,100,0),brightness:clamp(d.micaBrightness,10,100,75),density:clamp(d.micaDensity,2,60,12),opacity:clamp(d.micaOpacity,0,100,100),colors:[color(d.micaColors?.[0],defaults.micaColors[0]),color(d.micaColors?.[1],defaults.micaColors[1])]}
     },
     defaults:{tile:{motifId:"none",motifColor:"#171019",motifOpacity:.72,scale:1,x:0,y:0}},
-    tiles:clone(d.tiles||{}),export:{metadata:true}
+    tiles:normalizeTileOverrides(d.tiles),export:{metadata:true}
   };
 }
 
