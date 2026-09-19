@@ -1,0 +1,42 @@
+export const PROJECT_SCHEMA = "lightwell.project";
+export const PROJECT_VERSION = 2;
+
+const defaults = Object.freeze({
+  seed: "different forms, one curious practice", orientation: "portrait", pieceCount: 32,
+  hue: 282, saturation: 38, value: 84, leadWidth: 9, leadStyle: "ink",
+  crackColors: ["#35243a", "#76507a"], crackOpacity: 100,
+  micaAmount: 0, micaBrightness: 75, micaDensity: 12,
+  micaColors: ["#fffbe8", "#b9e8ff"], micaOpacity: 100, glassOpacity: 100
+});
+const clamp=(value,min,max,fallback)=>Number.isFinite(Number(value))?Math.min(max,Math.max(min,Number(value))):fallback;
+const color=(value,fallback)=>/^#[0-9a-f]{6}$/i.test(String(value))?String(value).toLowerCase():fallback;
+const clone=value=>JSON.parse(JSON.stringify(value));
+
+export function createProject(input={}) {
+  const d={...defaults,...input};
+  const orientation=d.orientation==="landscape"?"landscape":"portrait";
+  return {
+    schema:PROJECT_SCHEMA,version:PROJECT_VERSION,
+    geometry:{seed:String(d.seed||defaults.seed).slice(0,256),orientation,pieceCount:clamp(d.pieceCount,5,70,32),generator:"voronoi-v1",generatorVersion:1},
+    material:{
+      colorFamily:{hue:clamp(d.hue,0,359,282),saturation:clamp(d.saturation,0,100,38),value:clamp(d.value,10,100,84)},
+      glass:{opacity:clamp(d.glassOpacity,10,100,100)},
+      lead:{style:["ink","lightning","straight","wavy","branch","crackle"].includes(d.leadStyle)?d.leadStyle:"ink",width:clamp(d.leadWidth,3,16,9),opacity:clamp(d.crackOpacity,0,100,100),colors:[color(d.crackColors?.[0],defaults.crackColors[0]),color(d.crackColors?.[1],defaults.crackColors[1])]},
+      mica:{amount:clamp(d.micaAmount,0,100,0),brightness:clamp(d.micaBrightness,10,100,75),density:clamp(d.micaDensity,2,60,12),opacity:clamp(d.micaOpacity,0,100,100),colors:[color(d.micaColors?.[0],defaults.micaColors[0]),color(d.micaColors?.[1],defaults.micaColors[1])]}
+    },
+    defaults:{tile:{motifId:"none",motifColor:"#171019",motifOpacity:.72,scale:1,x:0,y:0}},
+    tiles:clone(d.tiles||{}),export:{metadata:true}
+  };
+}
+
+export function normalizeProject(value={}) {
+  if(value.schema!==PROJECT_SCHEMA||value.version!==PROJECT_VERSION) throw new TypeError("Unsupported Lightwell project");
+  return createProject({seed:value.geometry?.seed,orientation:value.geometry?.orientation,pieceCount:value.geometry?.pieceCount,hue:value.material?.colorFamily?.hue,saturation:value.material?.colorFamily?.saturation,value:value.material?.colorFamily?.value,glassOpacity:value.material?.glass?.opacity,leadStyle:value.material?.lead?.style,leadWidth:value.material?.lead?.width,crackOpacity:value.material?.lead?.opacity,crackColors:value.material?.lead?.colors,micaAmount:value.material?.mica?.amount,micaBrightness:value.material?.mica?.brightness,micaDensity:value.material?.mica?.density,micaOpacity:value.material?.mica?.opacity,micaColors:value.material?.mica?.colors,tiles:value.tiles});
+}
+
+export function panelOptions(project) {
+  const p=normalizeProject(project),g=p.geometry,m=p.material;
+  return {seed:g.seed,cells:g.pieceCount,width:g.orientation==="portrait"?900:1200,height:g.orientation==="portrait"?1100:760,hue:m.colorFamily.hue,saturation:m.colorFamily.saturation,value:m.colorFamily.value,glassOpacity:m.glass.opacity,lead:m.lead.width,leadStyle:m.lead.style,crackColor1:m.lead.colors[0],crackColor2:m.lead.colors[1],crackOpacity:m.lead.opacity,mica:m.mica.amount,micaBrightness:m.mica.brightness,micaDensity:m.mica.density,micaColor1:m.mica.colors[0],micaColor2:m.mica.colors[1],micaOpacity:m.mica.opacity};
+}
+
+export function serializeProject(project){return JSON.stringify(normalizeProject(project));}
