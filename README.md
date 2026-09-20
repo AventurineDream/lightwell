@@ -2,7 +2,7 @@
 
 **v0.1 beta**
 
-A dependency-free, seedable stained-glass generator for artists and web designers. Choose a global HSV color family, then click individual glass tiles to override their color and add one of 35 built-in motifs with independent color, opacity, scale, and X/Y position, plus deterministic panel-wide mica shimmer amount, brightness, density, chaotic two-color mixing, and opacity. Global controls can apply a silhouette and transform to all tiles at once. Toggle portrait or landscape, control tessellation down to five pieces, lead width, glass/lead/mica/motif opacity, and choose Ink, Lightning, Straight, Wavy, Branch, or Crackle lead styles, then export the composed SVG.
+A dependency-free, seedable stained-glass generator for artists and web designers. Choose a global HSV color family, then click individual glass tiles to override their color and add one of 37 built-in motifs with independent color, opacity, scale, and X/Y position, plus deterministic panel-wide mica shimmer amount, brightness, density, chaotic two-color mixing, and opacity. Global controls can apply a silhouette and transform to all tiles at once. Toggle portrait or landscape, control tessellation down to five pieces, lead width, glass/lead/mica/motif opacity, and choose Ink, Lightning, Straight, Wavy, Branch, or Crackle lead styles, then export the composed SVG.
 
 ## Run
 
@@ -34,10 +34,16 @@ MIT licensed. Contributions, new export adapters, accessibility improvements, an
 
 ## Beta status
 
-Lightwell is in public beta. The current motif library is being replaced with a more coherent art-nouveau set in the next update. See [CHANGELOG.md](CHANGELOG.md) for release notes and [CONTRIBUTING.md](CONTRIBUTING.md) to contribute.
+Lightwell is in public beta. The current charcoal motif library is versioned so older projects retain their original vector artwork. See [CHANGELOG.md](CHANGELOG.md) for release notes and [CONTRIBUTING.md](CONTRIBUTING.md) to contribute.
 
 ## Project files and SVG structure
 
 Save/Open uses validated `.lightwell.json` project files. Loaded geometry, materials, and every per-tile override are normalized before they reach preview or export. The live editor, undo/redo, project save/load, preview, and SVG export all read the same canonical project state.
 
 Composed SVG export includes glass, mica, and motif artwork in stable semantic groups: `background`, `glass`, `mica`, `motifs`, `lead`, `lighting`, and `frame`. Standalone exports are byte-deterministic. Embedders that inline multiple identical exports can request an instance namespace through the renderer API to avoid duplicate document IDs while retaining the same project identity.
+
+## Motif rendering contract
+
+Project schema v3 records a `motifLibrary` alongside the generator version. New work uses `charcoal-v1`; v1 and v2 project files migrate to `legacy-vector-v1`, so opening an older file preserves its vector motifs instead of silently substituting newer artwork. Motif IDs, labels, library revisions, render types, and local asset URLs come from `src/catalog/motif-manifest.js`.
+
+Charcoal PNGs are fetched locally and only when a project uses them. Preview caches those assets, while SVG export embeds data for only the used motifs, keeping exports self-contained without placing the full library in the startup JavaScript. CI runs unit and headless-browser integration tests.
