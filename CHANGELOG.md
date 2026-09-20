@@ -27,6 +27,12 @@ The silhouette library is usable but still uneven. A coherent art-nouveau replac
 
 ## Unreleased - v0.2 foundation
 
+- Version the motif rendering contract: new projects use `charcoal-v1`; v1/v2 projects migrate to `legacy-vector-v1`.
+- Consolidate IDs, labels, revisions, render types, and asset URLs in one manifest.
+- Load local charcoal PNGs lazily and embed only motifs used by a self-contained SVG export.
+- Validate alpha-mask structure and dimensions for every charcoal asset.
+- Add race-safe preview rendering, browser integration coverage, and CI.
+
 - Make the versioned project model and transactional history the live editor's single source of truth.
 - Route geometry, orientation, materials, global motif operations, and per-tile edits through undoable commands; coalesce continuous controls into one undo step.
 - Validate every loaded tile override and block unknown fields, unsafe colors, unknown motif IDs, and out-of-range transforms.

@@ -1,6 +1,6 @@
-import { MOTIF_ID_SET } from "../catalog/motif-ids.js";
+import { CURRENT_LIBRARY, LEGACY_LIBRARY, hasMotif } from "../catalog/motif-manifest.js";
 export const PROJECT_SCHEMA = "lightwell.project";
-export const PROJECT_VERSION = 2;
+export const PROJECT_VERSION = 3;
 
 const defaults = Object.freeze({
   seed: "different forms, one curious practice", orientation: "portrait", pieceCount: 32,
@@ -13,7 +13,7 @@ const clamp=(value,min,max,fallback)=>Number.isFinite(Number(value))?Math.min(ma
 const color=(value,fallback)=>/^#[0-9a-f]{6}$/i.test(String(value))?String(value).toLowerCase():fallback;
 const clone=value=>JSON.parse(JSON.stringify(value));
 const tileKeys=new Set(["color","silhouette","silhouetteColor","opacity","scale","positionX","positionY"]);
-export function normalizeTileOverrides(value={}) {
+export function normalizeTileOverrides(value={},motifLibrary=CURRENT_LIBRARY) {
   if(!value||typeof value!=="object"||Array.isArray(value))return{};
   const result={};
   for(const [rawKey,raw] of Object.entries(value)){
@@ -22,7 +22,7 @@ export function normalizeTileOverrides(value={}) {
     if(unknown.length)throw new TypeError(`Unknown tile override key: ${unknown[0]}`);
     const tile={};
     if("color" in raw)tile.color=color(raw.color,"#9b70b4");
-    if("silhouette" in raw)tile.silhouette=MOTIF_ID_SET.has(raw.silhouette)?raw.silhouette:"none";
+    if("silhouette" in raw)tile.silhouette=hasMotif(motifLibrary,raw.silhouette)?raw.silhouette:"none";
     if("silhouetteColor" in raw)tile.silhouetteColor=color(raw.silhouetteColor,"#171019");
     if("opacity" in raw)tile.opacity=clamp(raw.opacity,0,1,.72);
     if("scale" in raw)tile.scale=clamp(raw.scale,.2,3,1);
@@ -35,9 +35,10 @@ export function normalizeTileOverrides(value={}) {
 
 export function createProject(input={}) {
   const d={...defaults,...input};
+  const motifLibrary=[LEGACY_LIBRARY,CURRENT_LIBRARY].includes(d.motifLibrary)?d.motifLibrary:CURRENT_LIBRARY;
   const orientation=d.orientation==="landscape"?"landscape":"portrait";
   return {
-    schema:PROJECT_SCHEMA,version:PROJECT_VERSION,
+    schema:PROJECT_SCHEMA,version:PROJECT_VERSION,motifLibrary,
     geometry:{seed:String(d.seed||defaults.seed).slice(0,256),orientation,pieceCount:clamp(d.pieceCount,5,70,32),generator:"voronoi-v1",generatorVersion:1},
     material:{
       colorFamily:{hue:clamp(d.hue,0,359,282),saturation:clamp(d.saturation,0,100,38),value:clamp(d.value,10,100,84)},
@@ -46,13 +47,13 @@ export function createProject(input={}) {
       mica:{amount:clamp(d.micaAmount,0,100,0),brightness:clamp(d.micaBrightness,10,100,75),density:clamp(d.micaDensity,2,60,12),opacity:clamp(d.micaOpacity,0,100,100),colors:[color(d.micaColors?.[0],defaults.micaColors[0]),color(d.micaColors?.[1],defaults.micaColors[1])]}
     },
     defaults:{tile:{motifId:"none",motifColor:"#171019",motifOpacity:.72,scale:1,x:0,y:0}},
-    tiles:normalizeTileOverrides(d.tiles),export:{metadata:true}
+    tiles:normalizeTileOverrides(d.tiles,motifLibrary),export:{metadata:true}
   };
 }
 
 export function normalizeProject(value={}) {
   if(value.schema!==PROJECT_SCHEMA||value.version!==PROJECT_VERSION) throw new TypeError("Unsupported Lightwell project");
-  return createProject({seed:value.geometry?.seed,orientation:value.geometry?.orientation,pieceCount:value.geometry?.pieceCount,hue:value.material?.colorFamily?.hue,saturation:value.material?.colorFamily?.saturation,value:value.material?.colorFamily?.value,glassOpacity:value.material?.glass?.opacity,leadStyle:value.material?.lead?.style,leadWidth:value.material?.lead?.width,crackOpacity:value.material?.lead?.opacity,crackColors:value.material?.lead?.colors,micaAmount:value.material?.mica?.amount,micaBrightness:value.material?.mica?.brightness,micaDensity:value.material?.mica?.density,micaOpacity:value.material?.mica?.opacity,micaColors:value.material?.mica?.colors,tiles:value.tiles});
+  return createProject({motifLibrary:value.motifLibrary,seed:value.geometry?.seed,orientation:value.geometry?.orientation,pieceCount:value.geometry?.pieceCount,hue:value.material?.colorFamily?.hue,saturation:value.material?.colorFamily?.saturation,value:value.material?.colorFamily?.value,glassOpacity:value.material?.glass?.opacity,leadStyle:value.material?.lead?.style,leadWidth:value.material?.lead?.width,crackOpacity:value.material?.lead?.opacity,crackColors:value.material?.lead?.colors,micaAmount:value.material?.mica?.amount,micaBrightness:value.material?.mica?.brightness,micaDensity:value.material?.mica?.density,micaOpacity:value.material?.mica?.opacity,micaColors:value.material?.mica?.colors,tiles:value.tiles});
 }
 
 export function panelOptions(project) {
