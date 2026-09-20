@@ -29,3 +29,4 @@ test("malformed seed hashes fall back instead of throwing", () => {
   assert.equal(decodeSeedHash("#", "fallback"), "fallback");
 });
 test("charcoal motif assets are embedded and remain colorable",()=>{const p=makePanel({cells:5}),svg=panelToSVG(p,{0:{silhouette:"husky",silhouetteColor:"#123456",opacity:.8}},{motifLibrary:"charcoal-v1",motifAssets:{husky:"data:image/png;base64,AA=="}});assert.match(svg,/data:image\/png;base64/);assert.match(svg,/id="charcoal-husky"/);assert.match(svg,/fill="#123456" opacity="0.8" mask="url\(#charcoal-husky\)"/)});
+test("only glass tiles accept pointer events",()=>{const svg=panelToSVG(makePanel({seed:"pointer-layers",cells:12}),{0:{silhouette:"leaf"}});for(const layer of ["mica","motifs","lead","lighting","frame"])assert.match(svg,new RegExp(`data-lightwell-layer="${layer}" pointer-events="none"`));assert.doesNotMatch(svg,/data-lightwell-layer="glass" pointer-events="none"/)})
