@@ -28,3 +28,4 @@ test("malformed seed hashes fall back instead of throwing", () => {
   assert.equal(decodeSeedHash("#%"), "different forms, one curious practice");
   assert.equal(decodeSeedHash("#", "fallback"), "fallback");
 });
+test("charcoal motif assets are embedded and remain colorable",()=>{const p=makePanel({cells:5}),svg=panelToSVG(p,{0:{silhouette:"husky",silhouetteColor:"#123456",opacity:.8}});assert.match(svg,/data:image\/png;base64/);assert.match(svg,/id="charcoal-husky"/);assert.match(svg,/fill="#123456" opacity="0.8" mask="url\(#charcoal-husky\)"/)});
