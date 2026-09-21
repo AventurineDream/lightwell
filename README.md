@@ -1,6 +1,6 @@
 # Lightwell
 
-**v0.1 beta**
+**v0.2 foundation (in development)**
 
 A dependency-free, seedable stained-glass generator for artists and web designers. Choose a global HSV color family, then click individual glass tiles to override their color and add one of 37 built-in motifs with independent color, opacity, scale, and X/Y position, plus deterministic panel-wide mica shimmer amount, brightness, density, chaotic two-color mixing, and opacity. Global controls can apply a silhouette and transform to all tiles at once. Toggle portrait or landscape, control tessellation down to five pieces, lead width, glass/lead/mica/motif opacity, and choose Ink, Lightning, Straight, Wavy, Branch, or Crackle lead styles, then export the composed SVG.
 
@@ -11,7 +11,7 @@ python3 -m http.server 4173
 # open http://localhost:4173
 ```
 
-Generation and editing run locally. The UI currently loads Google Fonts from Google's CDN, with local font fallbacks when offline. No project data is uploaded. The generator is deterministic: the same seed and settings produce the same geometry and color family. Exported glass stays separate from the silhouette, so artists retain a clean source and can layer or animate it independently.
+Generation and editing run locally. The UI currently loads Google Fonts from Google's CDN, with local font fallbacks when offline. No project data is uploaded. The generator is deterministic: the same seed and settings produce the same geometry and color family. Composed SVG export keeps glass and motif artwork in separate semantic groups inside one self-contained file.
 
 ## Test
 
@@ -27,14 +27,14 @@ Export the composed SVG, and record the seed and settings with the asset. Inline
 
 ## Security
 
-Lightwell v0.1.1 uses only its built-in motif library; it does not import arbitrary SVG files. Exported SVG is generated from the app's constrained controls. For public deployments, keep a restrictive Content Security Policy.
+Lightwell v0.2 uses only its built-in, versioned motif libraries; it does not import arbitrary SVG files. Exported SVG is generated from the app's constrained controls. For public deployments, keep a restrictive Content Security Policy.
 
 MIT licensed. Contributions, new export adapters, accessibility improvements, and geometry modes are welcome.
 
 
-## Beta status
+## Development status
 
-Lightwell is in public beta. The current charcoal motif library is versioned so older projects retain their original vector artwork. See [CHANGELOG.md](CHANGELOG.md) for release notes and [CONTRIBUTING.md](CONTRIBUTING.md) to contribute.
+Lightwell v0.2 is in active foundation development. The current charcoal motif library is versioned so older projects retain their original vector artwork. See [CHANGELOG.md](CHANGELOG.md) for release notes and [CONTRIBUTING.md](CONTRIBUTING.md) to contribute.
 
 ## Project files and SVG structure
 
@@ -47,3 +47,7 @@ Composed SVG export includes glass, mica, and motif artwork in stable semantic g
 Project schema v3 records a `motifLibrary` alongside the generator version. New work uses `charcoal-v1`; v1 and v2 project files migrate to `legacy-vector-v1`, so opening an older file preserves its vector motifs instead of silently substituting newer artwork. Motif IDs, labels, library revisions, render types, and local asset URLs come from `src/catalog/motif-manifest.js`.
 
 Charcoal PNGs are fetched locally and only when a project uses them. Preview caches those assets, while SVG export embeds data for only the used motifs, keeping exports self-contained without placing the full library in the startup JavaScript. CI runs unit and headless-browser integration tests.
+
+## Schema v2 migration note
+
+Schema v2 predates explicit `motifLibrary` identity. Most v2 files used the legacy vector library, but a brief unreleased development interval could produce v2 files whose visible preview used charcoal assets. Those files are indistinguishable from legacy v2 files using serialized state alone. Migration therefore stays deterministic: every v2 file becomes `legacy-vector-v1`. Lightwell does not guess from motif IDs or timestamps. If a known transient file needs charcoal interpretation, edit a copy after migration by changing `motifLibrary` to `charcoal-v1`, then reopen it; keep the original as a backup. A future explicit upgrade operation can make that manual choice safer.
