@@ -27,6 +27,11 @@ The silhouette library is usable but still uneven. A coherent art-nouveau replac
 
 ## Unreleased - v0.2 foundation
 
+- Make CI browser startup diagnosable and portable across Chrome/Chromium executable names.
+- Enforce strict charcoal-vs-legacy rendering and library-aware motif pickers.
+- Add real pointer hit testing, slider/history, Save/Open, smaller-geometry, lazy-load, and export browser coverage.
+- Document the deterministic schema v2 migration ambiguity.
+
 - Version the motif rendering contract: new projects use `charcoal-v1`; v1/v2 projects migrate to `legacy-vector-v1`.
 - Consolidate IDs, labels, revisions, render types, and asset URLs in one manifest.
 - Load local charcoal PNGs lazily and embed only motifs used by a self-contained SVG export.
