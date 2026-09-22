@@ -51,3 +51,7 @@ Charcoal PNGs are fetched locally and only when a project uses them. Preview cac
 ## Schema v2 migration note
 
 Schema v2 predates explicit `motifLibrary` identity. Most v2 files used the legacy vector library, but a brief unreleased development interval could produce v2 files whose visible preview used charcoal assets. Those files are indistinguishable from legacy v2 files using serialized state alone. Migration therefore stays deterministic: every v2 file becomes `legacy-vector-v1`. Lightwell does not guess from motif IDs or timestamps. If a known transient file needs charcoal interpretation, edit a copy after migration by changing `motifLibrary` to `charcoal-v1`, then reopen it; keep the original as a backup. A future explicit upgrade operation can make that manual choice safer.
+
+## Text and motion
+
+Schema v4 adds one panel text object with content, color, opacity, size, X/Y placement, rotation, font family, alignment, and panel clipping. It also adds deterministic `drift-v1` glass motion. Motion offsets and phase are derived from the project seed and tile ID, so the same saved project exports the same animated SVG bytes. Disable motion for a static SVG.

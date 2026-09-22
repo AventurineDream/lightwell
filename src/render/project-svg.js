@@ -11,5 +11,5 @@ export async function renderProjectSVG(input,{instanceNamespace,fetcher}={}){
  const used=[...new Set(Object.values(project.tiles).map(x=>x.silhouette).filter(x=>x&&x!=="none"))];
  const motifAssets=project.motifLibrary===CURRENT_LIBRARY?await loadCharcoalAssets(used,{fetcher}):{};
  const head=`<title>${escapeText(project.geometry.seed)} - Lightwell stained glass</title><desc>Deterministic Lightwell project, schema version ${project.version}</desc>${project.export.metadata?`<metadata>${escapeText(canonical)}</metadata>`:""}`;
- return panelToSVG(makePanel(panelOptions(project)),project.tiles,{motifLibrary:project.motifLibrary,motifAssets,idPrefix:prefix,head,rootAttributes:`data-lightwell-project="${projectPrefix}" data-lightwell-instance="${prefix}"`});
+ return panelToSVG(makePanel(panelOptions(project)),project.tiles,{motifLibrary:project.motifLibrary,motifAssets,idPrefix:prefix,head,text:project.text,motion:project.motion,rootAttributes:`data-lightwell-project="${projectPrefix}" data-lightwell-instance="${prefix}"`});
 }
