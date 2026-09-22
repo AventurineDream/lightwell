@@ -27,6 +27,10 @@ The silhouette library is usable but still uneven. A coherent art-nouveau replac
 
 ## Unreleased - v0.2 foundation
 
+- Add schema v4 panel text placement with full typography and transform controls.
+- Add deterministic per-tile glass drift that exports as self-contained animated SVG.
+- Migrate v3 projects to empty text and disabled motion without changing existing artwork.
+
 - Make CI browser startup diagnosable and portable across Chrome/Chromium executable names.
 - Enforce strict charcoal-vs-legacy rendering and library-aware motif pickers.
 - Add real pointer hit testing, slider/history, Save/Open, smaller-geometry, lazy-load, and export browser coverage.
