@@ -1,4 +1,15 @@
+// Deterministic stained-glass panel generator and SVG composer.
+// makePanel() turns a seed plus settings into Voronoi-style tile polygons;
+// panelToSVG() renders a panel to one self-contained SVG string. Both are pure:
+// the same seed and settings must yield byte-identical output (CONTRIBUTING.md),
+// so every random draw comes from the seeded rng() and nothing reads time or Math.random.
 import { CURRENT_LIBRARY, motifManifest } from './catalog/motif-manifest.js';
+/**
+ * Converts HSV to a lowercase `#rrggbb` string.
+ * @param {number} h - hue in degrees; wrapped into [0, 360).
+ * @param {number} s - saturation percent; clamped to [0, 100].
+ * @param {number} v - value (brightness) percent; clamped to [0, 100].
+ */
 export function hsvToHex(h, s, v) {
   h = ((Number(h) % 360) + 360) % 360;
   s = Math.max(0, Math.min(100, Number(s))) / 100;
@@ -24,6 +35,13 @@ export function hsvToHex(h, s, v) {
       .join('')
   );
 }
+/**
+ * Builds the palette tiles draw from: hues offset from `hue` by a fixed table
+ * (0, 28, -32, 58, -66, 110, 180 degrees, cycled), with saturation lowered (floor 12)
+ * and value raised (cap 100) on a repeating pattern, so the palette is a pure function of its inputs.
+ * @param {number} count - number of colors to return (default 7).
+ * @returns {string[]} `#rrggbb` colors.
+ */
 export function colorFamily(hue, saturation, value, count = 7) {
   const offsets = [0, 28, -32, 58, -66, 110, 180];
   return Array.from({ length: count }, (_, i) =>
@@ -34,6 +52,11 @@ export function colorFamily(hue, saturation, value, count = 7) {
     )
   );
 }
+/**
+ * 32-bit FNV-1a hash of `String(seed)`, as an unsigned integer. It mixes in only the first
+ * UTF-16 unit of each code point (`c.charCodeAt(0)`), so astral characters hash by their high
+ * surrogate. Do not change: saved seeds depend on it.
+ */
 export function hashSeed(seed) {
   let h = 2166136261;
   for (const c of String(seed)) {
@@ -42,6 +65,10 @@ export function hashSeed(seed) {
   }
   return h >>> 0;
 }
+/**
+ * Seeded pseudo-random generator (mulberry32 over `hashSeed(seed)`).
+ * @returns {() => number} function returning floats in [0, 1); the same seed gives the same sequence.
+ */
 export function rng(seed) {
   let a = hashSeed(seed);
   return () => {
@@ -52,6 +79,7 @@ export function rng(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+/** Sutherland-Hodgman clip of `poly` to the half-plane a*x + b*y <= c (1e-7 tolerance); returns the clipped polygon, possibly empty. */
 function clip(poly, a, b, c) {
   const out = [];
   for (let i = 0; i < poly.length; i++) {
@@ -69,6 +97,7 @@ function clip(poly, a, b, c) {
   }
   return out;
 }
+/** Voronoi cell of site `p`: the box [x0,x1]x[y0,y1] clipped by the bisector against every other site. Returns [] if the cell vanishes. */
 function cell(p, others, x0, x1, y0, y1) {
   let poly = [
     { x: x0, y: y0 },
@@ -87,6 +116,13 @@ function cell(p, others, x0, x1, y0, y1) {
   }
   return poly;
 }
+/**
+ * Generates a panel: `cells` sites (cells-4 random sites inside a margin of 6% of the
+ * shorter side, plus four fixed corner sites), each taking a palette color and a Voronoi
+ * cell polygon. Cells with 2 or fewer vertices are dropped, so `polygons.length` can be
+ * below `cells`. Opacity and mica settings are passed through unchanged for panelToSVG().
+ * @returns the settings plus `polygons: {id, fill, points}[]`.
+ */
 export function makePanel({
   seed = 'aventurine',
   width = 900,
@@ -326,6 +362,21 @@ function leadTreatment(p) {
     extra: `<g fill="none" stroke="url(#crackChaos)" stroke-width="${w * 1.55}" opacity=".28" filter="url(#ink)">${polys}</g>`,
   };
 }
+/**
+ * Renders a panel from makePanel() to an SVG string with layered groups
+ * (background, glass, mica, motifs, lead, lighting, text, frame).
+ * @param {object} p - panel from makePanel().
+ * @param {Object<string, object>} [tileStyles] - per-tile overrides keyed by polygon id
+ *   (`color`, `silhouette`, `silhouetteColor`, `opacity`, `scale`, `positionX`, `positionY`).
+ * @param {object} [options]
+ * @param {string} [options.idPrefix] - prefixed to every element id so several SVGs can share a page.
+ * @param {object} [options.motion] - `{enabled, amount, duration}` drift animation.
+ * @param {string} [options.motifLibrary] - library the silhouette ids belong to.
+ * @param {Object<string,string>} [options.motifAssets] - motif id to PNG data URL for PNG motifs.
+ * @param {object} [options.text] - text layer settings (content, color, opacity, size, x, y, rotation, font, align, clip).
+ * @param {string} [options.head] - markup inserted before the defs; the caller must have escaped it.
+ * @param {string} [options.rootAttributes] - extra attributes on the root `<svg>`; caller-escaped.
+ */
 export function panelToSVG(p, tileStyles = {}, options = {}) {
   const prefix = options.idPrefix ? `${options.idPrefix}-` : '',
     id = (name) => `${prefix}${name}`,

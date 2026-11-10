@@ -1,3 +1,7 @@
+// Project schema: defaults, validation and normalization of Lightwell projects.
+// Every project passes through createProject(), which clamps numbers into range and
+// replaces invalid enum/color values with defaults, so downstream code can trust the
+// shape. Bump PROJECT_VERSION and add a step in migrations.js when the shape changes.
 import {
   CURRENT_LIBRARY,
   LEGACY_LIBRARY,
@@ -37,10 +41,12 @@ const defaults = Object.freeze({
   motionAmount: 6,
   motionDuration: 8,
 });
+/** Numeric `value` clamped to [min, max]; `fallback` when it is not a finite number. */
 const clamp = (value, min, max, fallback) =>
   Number.isFinite(Number(value))
     ? Math.min(max, Math.max(min, Number(value)))
     : fallback;
+/** Lowercased `#rrggbb` when `value` is a six-digit hex color, else `fallback`. */
 const color = (value, fallback) =>
   /^#[0-9a-f]{6}$/i.test(String(value))
     ? String(value).toLowerCase()
@@ -55,6 +61,14 @@ const tileKeys = new Set([
   'positionX',
   'positionY',
 ]);
+/**
+ * Validates per-tile overrides keyed by tile id (1-64 chars of letters, digits, `_`, `-`).
+ * Invalid keys and non-object entries are skipped silently; an unknown field inside an entry
+ * throws. Values are clamped (opacity 0-1, scale 0.2-3, position -100..100) and an unknown
+ * silhouette becomes `'none'`.
+ * @param {string} motifLibrary - library used to validate silhouette ids.
+ * @throws {TypeError} `Unknown tile override key: <key>`.
+ */
 export function normalizeTileOverrides(
   value = {},
   motifLibrary = CURRENT_LIBRARY
@@ -89,6 +103,12 @@ export function normalizeTileOverrides(
   return result;
 }
 
+/**
+ * Builds a complete project from partial input, filling defaults and clamping every value
+ * (for example pieceCount 5-70, leadWidth 3-16, seed truncated to 256 chars, text to 500 chars).
+ * Accepts both nested (`text`, `motion`) and flat (`textContent`, `motionEnabled`) input.
+ * Never throws for bad values except via normalizeTileOverrides().
+ */
 export function createProject(input = {}) {
   const d = { ...defaults, ...input };
   const motifLibrary = [LEGACY_LIBRARY, CURRENT_LIBRARY].includes(
@@ -183,6 +203,11 @@ export function createProject(input = {}) {
   };
 }
 
+/**
+ * Re-validates a saved project of the current schema.
+ * @throws {TypeError} when `schema` or `version` is not the current PROJECT_SCHEMA / PROJECT_VERSION;
+ *   older versions must go through migrateProject() first.
+ */
 export function normalizeProject(value = {}) {
   if (value.schema !== PROJECT_SCHEMA || value.version !== PROJECT_VERSION)
     throw new TypeError('Unsupported Lightwell project');
@@ -210,6 +235,9 @@ export function normalizeProject(value = {}) {
   });
 }
 
+/**
+ * Maps a project to makePanel() settings. Portrait is 900x1100, landscape 1200x760.
+ */
 export function panelOptions(project) {
   const p = normalizeProject(project),
     g = p.geometry,
@@ -237,6 +265,7 @@ export function panelOptions(project) {
   };
 }
 
+/** Canonical JSON text for `project` (normalized first); also used to compute project hashes. */
 export function serializeProject(project) {
   return JSON.stringify(normalizeProject(project));
 }

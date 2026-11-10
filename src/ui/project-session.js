@@ -1,4 +1,8 @@
+// Converts between the flat control values used by the UI and the nested project
+// model. projectFromControls() normalizes through createProject(), so bad control
+// values are clamped; controlsFromProject() is its inverse for the shared fields.
 import { createProject } from '../model/schema.js';
+/** Builds a normalized project from flat UI control values `c` and the current per-tile overrides. */
 export function projectFromControls(c, tiles = {}) {
   return createProject({
     seed: c.seed,
@@ -20,6 +24,7 @@ export function projectFromControls(c, tiles = {}) {
     tiles,
   });
 }
+/** Flat control values (seed, cells, hue, lead and mica settings, ...) read from project `p`. */
 export function controlsFromProject(p) {
   return {
     seed: p.geometry.seed,

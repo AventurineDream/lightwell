@@ -1,3 +1,6 @@
+// Upgrades older saved project files to the current schema. Versions 1-3 are
+// migrated; versions 1 and 2 predate the charcoal motif library and are pinned to the
+// legacy library so their silhouettes keep rendering as saved.
 import { createProject, PROJECT_SCHEMA, PROJECT_VERSION } from './schema.js';
 import { LEGACY_LIBRARY } from '../catalog/motif-manifest.js';
 const structured = (value, motifLibrary) =>
@@ -21,6 +24,12 @@ const structured = (value, motifLibrary) =>
     micaColors: value.material?.mica?.colors,
     tiles: value.tiles,
   });
+/**
+ * Returns a project in the current shape. Current-version input is returned as-is (call
+ * normalizeProject() afterwards); v3 keeps its motif library; v1 and v2 use the legacy library.
+ * @throws {TypeError} if `value` is not an object, or its version is unknown
+ *   (`Unsupported Lightwell project version: <v>`).
+ */
 export function migrateProject(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new TypeError('Project must be an object');

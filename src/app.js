@@ -1,3 +1,7 @@
+// Browser entry point: wires the DOM controls to a history-backed project and renders
+// the SVG preview. State lives in `history` (undo/redo); `baseline` is the serialized
+// project at last load/save, used to detect unsaved changes; `selected` is the focused tile.
+// Slider drags are grouped into one undo step with begin()/end() (see continuous()).
 import { makePanel, panelToSVG } from './generator.js';
 import { loadCharcoalAssets } from './catalog/charcoal-motifs.js';
 import { CURRENT_LIBRARY } from './catalog/motif-manifest.js';
@@ -221,6 +225,10 @@ function syncControls() {
   } catch {}
 }
 let renderSequence = 0;
+/**
+ * Re-renders the preview. A sequence counter (`renderSequence`) is taken first so that, when
+ * motif assets load asynchronously, only the most recent call is allowed to apply its result.
+ */
 async function render() {
   const sequence = ++renderSequence,
     p = validSelection(),
@@ -287,6 +295,10 @@ function end() {
     render();
   }
 }
+/**
+ * Binds a slider/input so one drag is a single undo step: pointerdown/first input opens a history
+ * transaction, each input applies `command(project, element.value)`, change/blur closes it.
+ */
 function continuous(element, label, command) {
   element.onpointerdown = () => begin(label);
   element.oninput = () => {

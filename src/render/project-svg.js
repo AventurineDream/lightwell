@@ -1,3 +1,6 @@
+// Renders a saved project to a self-contained SVG: normalizes it, loads any PNG
+// motif assets, derives stable element ids from a hash of the canonical project JSON,
+// and embeds the project as <metadata> when `export.metadata` is true.
 import { makePanel, panelToSVG } from '../generator.js';
 import {
   normalizeProject,
@@ -20,9 +23,17 @@ function escapeText(value) {
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]
   );
 }
+/** Short base-36 FNV-1a hash of the canonical project JSON; identical projects always hash equal. */
 export function projectHash(project) {
   return hash(serializeProject(project));
 }
+/**
+ * Renders a project (any shape accepted by normalizeProject) to SVG text.
+ * @param {{instanceNamespace?: *, fetcher?: typeof fetch}} [options] - `instanceNamespace` is
+ *   hashed into the element-id prefix so the same project can appear more than once on a page;
+ *   `fetcher` replaces `fetch` for loading motif assets (tests).
+ * @throws {Error} when a motif asset cannot be fetched.
+ */
 export async function renderProjectSVG(
   input,
   { instanceNamespace, fetcher } = {}
