@@ -1,4 +1,4 @@
-# Shared editor defaults (Aven Code Standard §5.3). Formatters below are authoritative;
+# Shared editor defaults (Aven Code Standard §5.3). The repo formatter is authoritative;
 # this file only keeps editors from fighting them.
 root = true
 
