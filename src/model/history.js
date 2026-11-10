@@ -1,6 +1,19 @@
+// Undo/redo history over a normalized project. Each committed change pushes the
+// previous project onto `past` (capped at `limit`) and clears `future`;
+// begin()/end() group many execute() calls into one undo step.
 import { normalizeProject } from './schema.js';
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+/**
+ * Creates an undo/redo history.
+ * @param {object} initial - starting project (normalized).
+ * @param {{limit?: number}} [options] - maximum undo steps kept (default 100); the oldest is dropped first.
+ * Edits that leave the project unchanged (JSON-equal) are not recorded.
+ * Inside a begin()/end() transaction, execute() updates the project without recording steps;
+ * end() records one step if anything changed, cancel() restores the pre-transaction project.
+ * undo()/redo() are no-ops while a transaction is open. begin() throws if one is already open.
+ * @returns the history API; `getState()` returns `{project, canUndo, canRedo, undoLabel, redoLabel}`.
+ */
 export function createHistory(initial, { limit = 100 } = {}) {
   let present = normalizeProject(initial),
     past = [],

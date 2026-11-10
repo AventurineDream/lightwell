@@ -1,3 +1,6 @@
+// Project file I/O: parse untrusted `.lightwell.json` text into a normalized
+// project, and package a project for download. Parsing rejects oversize input,
+// invalid JSON, prototype-pollution keys, deep nesting and too many tile overrides.
 import { migrateProject } from '../model/migrations.js';
 import { normalizeProject, serializeProject } from '../model/schema.js';
 export const PROJECT_MIME = 'application/vnd.lightwell.project+json';
@@ -12,6 +15,15 @@ function inspect(value, depth = 0) {
     }
   }
 }
+/**
+ * Parses untrusted project text.
+ * @param {string} text - file contents.
+ * @param {{maxBytes?: number}} [options] - size limit in UTF-8 bytes (default 1,000,000).
+ * @returns {object} the migrated, normalized project.
+ * @throws {TypeError} non-text input, nesting deeper than 12, or a `__proto__`/`prototype`/`constructor` key.
+ * @throws {RangeError} input over `maxBytes`, or more than 500 tile overrides.
+ * @throws {SyntaxError} invalid JSON.
+ */
 export function parseProject(text, { maxBytes = 1_000_000 } = {}) {
   if (typeof text !== 'string')
     throw new TypeError('Project input must be text');
@@ -29,6 +41,7 @@ export function parseProject(text, { maxBytes = 1_000_000 } = {}) {
     throw new RangeError('Project has too many tile overrides');
   return normalizeProject(migrated);
 }
+/** Returns `{mime, extension, text}` for saving `project` as a `.lightwell.json` file. */
 export function projectFile(project) {
   return {
     mime: PROJECT_MIME,
