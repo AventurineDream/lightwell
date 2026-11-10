@@ -2,6 +2,9 @@
 // the SVG preview. State lives in `history` (undo/redo); `baseline` is the serialized
 // project at last load/save, used to detect unsaved changes; `selected` is the focused tile.
 // Slider drags are grouped into one undo step with begin()/end() (see continuous()).
+// The element ids in index.html are this module's contract with the page (looked up once at
+// load) and with scripts/browser-integration.mjs, which drives the controls by id. The initial
+// seed comes from the URL hash; syncControls() writes the current seed back to it.
 import { makePanel, panelToSVG } from './generator.js';
 import { loadCharcoalAssets } from './catalog/charcoal-motifs.js';
 import { CURRENT_LIBRARY } from './catalog/motif-manifest.js';
@@ -78,6 +81,7 @@ populateMotifSelects(
   document,
   CURRENT_LIBRARY
 );
+// Starter overrides so a fresh page shows motifs; tile 8 is the initially selected tile.
 const demoTiles = {
   0: {
     color: '#bb7eaa',
@@ -99,12 +103,14 @@ let loadedMotifAssets = {},
   selected = 8,
   baseline = serializeProject(history.getState().project),
   transaction = false;
+/** File-name slug of a seed: lowercase [a-z0-9] runs joined by '-', at most 50 chars, 'panel' if empty. */
 const safe = (s) =>
   s
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
     .slice(0, 50) || 'panel';
+/** Downloads `blob` as `name` through a temporary object URL, revoked after 500 ms. */
 function save(blob, name) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -112,20 +118,30 @@ function save(blob, name) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 500);
 }
+/** Current project; history.getState() returns a copy, so edits must go through history. */
 function state() {
   return history.getState().project;
 }
+/** Regenerates tile geometry from the current project (recomputed on every call). */
 function panel() {
   return makePanel(panelOptions(state()));
 }
+/** Clamps `selected` into `p`'s tile range (a new geometry can have fewer tiles) and returns `p`. */
 function validSelection(p = panel()) {
   selected = Math.max(0, Math.min(selected, p.polygons.length - 1));
   return p;
 }
+/** True when the project differs from `baseline` (last open/save); drives the beforeunload prompt. */
 function isDirty() {
   return serializeProject(state()) !== baseline;
 }
 let controlsLibrary = CURRENT_LIBRARY;
+/**
+ * Writes the project into every control and value label, refills the motif selects when the
+ * project's motif library differs from the one they were filled for (`controlsLibrary`),
+ * updates undo/redo enabled state, and mirrors the seed into the URL hash (replaceState
+ * errors are ignored).
+ */
 function syncControls() {
   const p = state();
   if (controlsLibrary !== p.motifLibrary) {
@@ -273,15 +289,19 @@ async function render() {
   });
   syncControls();
 }
+/** Selects tile `id`, re-renders, and announces it through the aria-live #status element. */
 function select(id) {
   selected = id;
   render();
   elements.status.textContent = `Selected tile ${selected + 1} of ${panel().polygons.length}`;
 }
+/** Applies `command` as one undo step and re-renders. */
 function execute(label, command) {
   history.execute(label, command);
   render();
 }
+// begin()/end() open and close the drag transaction used by continuous(). The `transaction`
+// flag makes both idempotent, because history.begin() throws when a transaction is already open.
 function begin(label) {
   if (!transaction) {
     history.begin(label);
@@ -309,6 +329,8 @@ function continuous(element, label, command) {
   element.onchange = end;
   element.onblur = end;
 }
+// Adapters from a control's string value to a command: material(path) sets one material
+// field; tile(key) overrides one key on whichever tile is selected when the input fires.
 const material =
     (path, convert = Number) =>
     (p, value) =>
@@ -375,6 +397,7 @@ for (const [e, label, path, convert] of [
   continuous(e, label, material(path, convert));
 leadStyle.onchange = () =>
   execute('Lead style', setMaterial(['lead', 'style'], leadStyle.value));
+/** Applies `patch` to every tile of the current geometry as one undo step; other override keys are kept. */
 function globalEdit(label, patch) {
   history.execute(label, (p) => {
     const pn = makePanel(panelOptions(p));
@@ -445,12 +468,15 @@ elements.generate.onclick = () =>
       pieceCount: +count.value,
     })
   );
+// Surprise is the one non-deterministic control: it picks a random seed and hue; generation
+// from the resulting seed is still deterministic.
 elements.surprise.onclick = () =>
   execute('Surprise', (p) => {
     changeGeometry({ seed: crypto.randomUUID().slice(0, 8) })(p);
     setMaterial(['colorFamily', 'hue'], Math.floor(Math.random() * 360))(p);
     return p;
   });
+// Only the hue of the picked color is used (RGB to HSV hue); saturation and value are left as set.
 color.onchange = () => {
   const x = color.value,
     r = parseInt(x.slice(1, 3), 16) / 255,
@@ -515,6 +541,7 @@ elements.projectFile.onchange = async (e) => {
     e.target.value = '';
   }
 };
+// Ctrl/Cmd+Z undoes, with Shift redoes. Clicking the buttons means a disabled one does nothing.
 document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
     e.preventDefault();

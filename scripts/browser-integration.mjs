@@ -1,3 +1,12 @@
+// Browser integration test (`npm run test:browser`). Serves the repo root with
+// `python3 -m http.server` on 127.0.0.1:4187, opens it in headless Chrome/Chromium with
+// DevTools on port 9223, and drives the real UI over the DevTools protocol: tile hit
+// testing across geometries, undo grouping, lazy charcoal assets, Save/Open round trip,
+// selection clamping, text/motion layers, and self-contained SVG export.
+// Requires python3, a Chrome/Chromium binary (CHROME_PATH or PATH), both ports free, and a
+// Node with global fetch and WebSocket (Node 22+). Any failed assertion or startup error
+// rejects the top-level await, so the process exits non-zero; Chrome and the server are
+// killed in `finally`. The temporary Chrome profile directory is not removed.
 import assert from 'node:assert/strict';
 import { access, mkdtemp } from 'node:fs/promises';
 import { constants } from 'node:fs';
@@ -8,6 +17,7 @@ import { join } from 'node:path';
 const root = new URL('../', import.meta.url).pathname,
   port = 4187,
   profile = await mkdtemp(join(tmpdir(), 'lightwell-browser-'));
+/** First usable browser: CHROME_PATH, then common names on PATH, then absolute paths; throws listing what was tried. */
 async function executable() {
   const candidates = [
     process.env.CHROME_PATH,
@@ -61,6 +71,7 @@ const chrome = spawn(
 chrome.stderr.on('data', (x) => (chromeErr += x));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 try {
+  // Poll up to ~10 s for the DevTools page target, failing fast if Chrome or the server dies.
   let target;
   for (let i = 0; i < 100 && !target; i++) {
     if (chrome.exitCode !== null)
@@ -96,6 +107,7 @@ try {
       pending.delete(x.id);
     }
   };
+  /** Sends one DevTools command; resolves with its result, rejects with its error message. */
   const send = (method, params = {}) =>
     new Promise((resolve, reject) => {
       const n = ++id;
@@ -104,6 +116,7 @@ try {
       );
       ws.send(JSON.stringify({ id: n, method, params }));
     });
+  /** Evaluates `expression` in the page (awaiting promises) and returns its value; page exceptions throw. */
   const evaluate = async (expression) => {
     const x = await send('Runtime.evaluate', {
       expression,
@@ -126,6 +139,11 @@ try {
     await evaluate("document.querySelectorAll('.tile').length>=5"),
     'preview renders'
   );
+  /**
+   * Clicks each tile at the mean of its polygon's vertices with real mouse events and asserts
+   * that tile became selected. Before any click, throws if one of those points is covered by
+   * another element (an overlay intercepting clicks).
+   */
   const clickEveryTile = async (label) => {
     const points = await evaluate(
       `(()=>[...stage.querySelectorAll('.tile')].map(t=>{const p=t.querySelector('polygon'),a=[...p.points],local=new DOMPoint(a.reduce((n,x)=>n+x.x,0)/a.length,a.reduce((n,x)=>n+x.y,0)/a.length),q=local.matrixTransform(p.getScreenCTM()),hit=document.elementFromPoint(q.x,q.y);if(hit?.closest('.tile')!==t)throw Error('Overlay intercepted tile '+t.dataset.tile);return{id:+t.dataset.tile,x:q.x,y:q.y}}))()`
