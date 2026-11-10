@@ -1,1 +1,12 @@
-{"name":"lightwell","version":"0.2.0","private":true,"type":"module","scripts":{"test":"node --test","test:browser":"node scripts/browser-integration.mjs"}}
+{
+  "name": "lightwell",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "test:browser": "node scripts/browser-integration.mjs",
+    "format": "npx --yes prettier@3.9.10 --write .",
+    "format:check": "npx --yes prettier@3.9.10 --check ."
+  }
+}
