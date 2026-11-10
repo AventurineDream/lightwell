@@ -20,7 +20,8 @@ function inspect(value, depth = 0) {
  * @param {string} text - file contents.
  * @param {{maxBytes?: number}} [options] - size limit in UTF-8 bytes (default 1,000,000).
  * @returns {object} the migrated, normalized project.
- * @throws {TypeError} non-text input, nesting deeper than 12, or a `__proto__`/`prototype`/`constructor` key.
+ * @throws {TypeError} malformed or unsupported projects, including non-text/non-object input,
+ * excessive nesting, forbidden prototype keys, unsupported versions, or unknown tile fields.
  * @throws {RangeError} input over `maxBytes`, or more than 500 tile overrides.
  * @throws {SyntaxError} invalid JSON.
  */

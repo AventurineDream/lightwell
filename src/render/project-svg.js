@@ -1,6 +1,6 @@
 // Renders a saved project to a self-contained SVG: normalizes it, loads any PNG
 // motif assets, derives stable element ids from a hash of the canonical project JSON,
-// and embeds the project as <metadata> when `export.metadata` is true.
+// and always embeds the canonical project as <metadata>.
 import { makePanel, panelToSVG } from '../generator.js';
 import {
   normalizeProject,

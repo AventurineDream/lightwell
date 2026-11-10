@@ -55,7 +55,7 @@ export function colorFamily(hue, saturation, value, count = 7) {
 /**
  * 32-bit FNV-1a hash of `String(seed)`, as an unsigned integer. It mixes in only the first
  * UTF-16 unit of each code point (`c.charCodeAt(0)`), so astral characters hash by their high
- * surrogate. Do not change: saved seeds depend on it.
+ * surrogate. Do not change: saved projects' regenerated geometry depends on it.
  */
 export function hashSeed(seed) {
   let h = 2166136261;

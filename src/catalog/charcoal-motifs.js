@@ -16,7 +16,8 @@ const bytesToDataUrl = (bytes) => {
  * @param {string} id - motif id in the current library.
  * @param {{fetcher?: typeof fetch}} [options] - injectable fetch (tests).
  * @returns {Promise<string|null>} null when the id is unknown or not a PNG motif.
- * @throws {Error} `Unable to load motif asset: <id>` on a non-OK response (the cache entry is dropped).
+ * @throws {Error} non-OK responses, network failures, or response-body read failures;
+ * rejected loads are evicted from the cache so a later attempt can retry.
  */
 export async function loadCharcoalDataUrl(id, { fetcher = fetch } = {}) {
   if (cache.has(id)) return cache.get(id);

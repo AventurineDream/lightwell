@@ -242,8 +242,8 @@ function syncControls() {
 }
 let renderSequence = 0;
 /**
- * Re-renders the preview. A sequence counter (`renderSequence`) is taken first so that, when
- * motif assets load asynchronously, only the most recent call is allowed to apply its result.
+ * Re-renders the preview. The sequence counter limits DOM updates to the latest call
+ * after asynchronous motif loading; stale calls may still populate the shared asset cache.
  */
 async function render() {
   const sequence = ++renderSequence,
