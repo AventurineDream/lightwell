@@ -14,7 +14,7 @@ python3 -m http.server 4173   # then open http://localhost:4173; Node 20+ for te
 ## Commands
 | Task | Command |
 |---|---|
-| Format | none yet (Prettier-only commit planned; many source lines are packed, see Aven Code Standard §5.5) |
+| Format | `npm run format` (check: `npm run format:check`) |
 | Lint | none |
 | Typecheck | none |
 | Test (fast) | `npm test` |
