@@ -1,74 +1,440 @@
-import { CURRENT_LIBRARY, motifManifest } from "./catalog/motif-manifest.js";
-export function hsvToHex(h,s,v){h=((Number(h)%360)+360)%360;s=Math.max(0,Math.min(100,Number(s)))/100;v=Math.max(0,Math.min(100,Number(v)))/100;const c=v*s,x=c*(1-Math.abs((h/60)%2-1)),m=v-c;let a=[0,0,0];if(h<60)a=[c,x,0];else if(h<120)a=[x,c,0];else if(h<180)a=[0,c,x];else if(h<240)a=[0,x,c];else if(h<300)a=[x,0,c];else a=[c,0,x];return"#"+a.map(n=>Math.round((n+m)*255).toString(16).padStart(2,"0")).join("")}
-export function colorFamily(hue,saturation,value,count=7){const offsets=[0,28,-32,58,-66,110,180];return Array.from({length:count},(_,i)=>hsvToHex(hue+offsets[i%offsets.length],Math.max(12,saturation-(i%3)*10),Math.min(100,value+(i%2)*7)))}
-export function hashSeed(seed){let h=2166136261;for(const c of String(seed)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
-export function rng(seed){let a=hashSeed(seed);return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-function clip(poly,a,b,c){const out=[];for(let i=0;i<poly.length;i++){const p=poly[i],q=poly[(i+1)%poly.length],dp=a*p.x+b*p.y-c,dq=a*q.x+b*q.y-c,inside=dp<=1e-7,next=dq<=1e-7;if(inside)out.push(p);if(inside!==next){const t=dp/(dp-dq);out.push({x:p.x+t*(q.x-p.x),y:p.y+t*(q.y-p.y)})}}return out}
-function cell(p,others,x0,x1,y0,y1){let poly=[{x:x0,y:y0},{x:x1,y:y0},{x:x1,y:y1},{x:x0,y:y1}];for(const q of others){poly=clip(poly,2*(q.x-p.x),2*(q.y-p.y),q.x*q.x+q.y*q.y-p.x*p.x-p.y*p.y);if(!poly.length)break}return poly}
-export function makePanel({seed="aventurine",width=900,height=1100,cells=32,hue=282,saturation=38,value=84,lead=9,leadStyle="ink",crackColor1="#35243a",crackColor2="#76507a",crackOpacity=100,mica=0,micaBrightness=75,micaDensity=12,micaColor1="#fffbe8",micaColor2="#b9e8ff",micaOpacity=100,glassOpacity=100}={}){const r=rng(seed),colors=colorFamily(hue,saturation,value),m=Math.min(width,height)*.06,pts=[];for(let i=0;i<Math.max(1,cells-4);i++)pts.push({x:m+r()*(width-2*m),y:m+r()*(height-2*m),c:colors[Math.floor(r()*colors.length)]});pts.push({x:m,y:m,c:colors[0]},{x:width-m,y:m,c:colors[1]},{x:width-m,y:height-m,c:colors[2]},{x:m,y:height-m,c:colors[3]});return{seed,width,height,hue,saturation,value,lead,leadStyle,crackColor1,crackColor2,crackOpacity,mica,micaBrightness,micaDensity,micaColor1,micaColor2,micaOpacity,glassOpacity,polygons:pts.map((p,i)=>({id:i,fill:p.c,points:cell(p,pts.filter((_,j)=>j!==i),m,width-m,m,height-m)})).filter(x=>x.points.length>2)}}
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const pts=x=>x.points.map(q=>`${q.x.toFixed(2)},${q.y.toFixed(2)}`).join(" ");
-export const silhouettes=motifManifest.filter(x=>x.libraries[CURRENT_LIBRARY]).map(x=>[x.id,x.label]);
-function legacyShape(kind,c,o){const f=`fill="${c}" opacity="${o}"`,st=`fill="none" stroke="${c}" stroke-width="55" stroke-linecap="round" stroke-linejoin="round" opacity="${o}"`;const d={
-leaf:`<path ${f} d="M446 945C160 770 170 300 545 125c175 305 60 640-99 820z"/><path ${st} d="M445 875L520 220M458 690L290 555M478 510L625 405"/>`,
-moon:`<path ${f} d="M680 145c-330 105-335 655 10 810C160 985 30 300 390 80c108-66 215-69 290-45-9 38-9 74 0 110z"/>`,
-spark:`<path ${f} d="M450 55l105 365 325 130-325 130-105 365-105-365L20 550l325-130z"/>`,
-sun:`<circle ${f} cx="450" cy="550" r="230"/><g ${st}>${[0,45,90,135,180,225,270,315].map(a=>`<path d="M450 95v110" transform="rotate(${a} 450 550)"/>`).join("")}</g>`,
-flower:`<g ${f}>${[0,60,120,180,240,300].map(a=>`<ellipse cx="450" cy="315" rx="115" ry="225" transform="rotate(${a} 450 550)"/>`).join("")}<circle cx="450" cy="550" r="105"/></g>`,
-fern:`<path ${st} d="M330 980Q500 680 490 130M440 820l-205-95M455 735l235-120M468 635l-210-110M477 535l205-120M484 430l-170-90M488 335l150-100"/>`,
-mushroom:`<path ${f} d="M175 520Q210 160 450 130T725 520H175zm190 15h170l80 420H285z"/>`,
-moth:`<path ${f} d="M435 390C230 90 45 250 175 585c70 180 200 145 260 35v290h30V620c60 110 190 145 260-35C855 250 670 90 465 390z"/><circle ${f} cx="450" cy="350" r="55"/>`,
-bird:`<path ${f} d="M70 635q215-300 380-75 165-225 380 75-240-105-380 160Q310 530 70 635z"/>`,
-cat:`<path ${f} d="M220 410l35-260 190 150 200-150 35 260q75 145 5 350T450 975Q285 960 215 760t5-350z"/><path d="M340 570l55 25M560 595l55-25" ${st}/>` ,
-fox:`<path ${f} d="M105 205l285 130 60 625 60-625 285-130-85 560-260 220-260-220z"/><path fill="#fff" opacity=".45" d="M260 510l190 450 190-450-190 150z"/>`,
-rabbit:`<path ${f} d="M300 415Q165 30 335 35q110 115 115 335Q460 35 570 35q170-5 35 380 165 100 110 350T450 1010 185 765q-55-250 115-350z"/>`,
-fish:`<path ${f} d="M120 555q230-310 540 0-310 310-540 0zm530 0 200-210v420z"/><circle cx="305" cy="505" r="25" fill="#fff"/>`,
-snake:`<path ${st} d="M630 135C155 120 740 420 300 555s275 300-40 455"/><path ${f} d="M590 90l180 55-145 120z"/>`,
-shell:`<path ${st} d="M450 900C80 770 120 200 500 175c360-20 430 475 95 600-255 95-395-225-175-355 155-90 275 115 140 210-75 50-155-25-105-85"/>`,
-mountain:`<path ${f} d="M20 950l285-570 120 210 150-430 305 790z"/><path fill="#fff" opacity=".45" d="M455 505l120-345 105 290-105-80z"/>`,
-wave:`<path ${f} d="M35 770q170-500 515-370-170 25-185 190 315-205 500 95-145-105-270 45 135 25 235 180H35z"/>`,
-cloud:`<path ${f} d="M150 770q-135-210 95-290 35-260 280-160 195-40 230 170 185 95 20 280z"/>`,
-rain:`<path ${f} d="M145 590q-120-190 90-260 35-230 255-140 180-35 215 150 165 80 20 250z"/><g ${st}><path d="M260 700l-55 160M450 700l-55 160M640 700l-55 160"/></g>`,
-flame:`<path ${f} d="M450 1010C95 815 265 565 390 430q110-120 65-355 345 260 260 575-65 265-265 360zm0-125q145-80 85-230-30-75-40-170-145 155-45 400z"/>`,
-eye:`<path ${f} d="M45 550q405-450 810 0-405 450-810 0z"/><ellipse fill="#fff" opacity=".55" cx="450" cy="550" rx="145" ry="200"/><circle ${f} cx="450" cy="550" r="85"/>`,
-hand:`<path ${f} d="M280 965l-35-420q-8-90 60-95 50 0 65 70V210q0-75 65-75t65 75v240-300q0-70 62-70t62 70v340-230q0-65 58-65t58 65v370q0 280-215 365z"/>`,
-heart:`<path ${f} d="M450 1010C90 750 85 385 300 270q105-55 170 60 70-115 180-45 235 150 60 430z"/>`,
-key:`<circle ${st} cx="300" cy="330" r="185"/><path ${st} d="M430 460l355 400M650 710l80-85M720 785l80-80"/>`,
-crown:`<path ${f} d="M110 875L55 260l235 230 160-330 160 330 235-230-55 615z"/>`,
-hourglass:`<path ${st} d="M235 120h430M235 980h430M290 145q0 250 160 405-160 155-160 405M610 145q0 250-160 405 160 155 160 405"/>`,
-lantern:`<path ${f} d="M245 315h410l80 610H165z"/><path ${st} d="M330 305q0-210 120-210t120 210M265 520h370M300 850h300"/>`,
-bottle:`<path ${f} d="M355 85h190v235q150 110 155 365 0 260-250 260S200 945 200 685q5-255 155-365z"/><path fill="#fff" opacity=".4" d="M245 650h410v235H245z"/>`,
-crystal:`<path ${f} d="M70 930l110-480 160-185 110 170 135-330 190 330 70 495z"/>`,
-planet:`<circle ${f} cx="450" cy="550" r="245"/><ellipse ${st} cx="450" cy="550" rx="410" ry="135" transform="rotate(-18 450 550)"/>`,
-comet:`<path ${f} d="M610 185a180 180 0 11-1 360 180 180 0 011-360zM55 925l390-500 70 70zM150 980l405-430 45 85z"/>`,
-constellation:`<g ${st}><path d="M150 820l155-420 190 175 235-390M305 400l-55-220M495 575l155 300"/></g><g ${f}>${[[150,820],[305,400],[495,575],[730,185],[250,180],[650,875]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="42"/>`).join("")}</g>`,
-arch:`<path ${st} d="M175 970V500q0-390 275-390t275 390v470M300 970V520q0-215 150-215t150 215v450"/>`,
-tower:`<path ${f} d="M245 985l45-690h75V125h80v170h90V125h80v170h75l45 690z"/><path fill="#fff" opacity=".45" d="M410 720h80v265h-80z"/>`,
-door:`<path ${f} d="M210 985V280q0-190 240-190t240 190v705z"/><path fill="#fff" opacity=".45" d="M325 985V330q0-85 125-85t125 85v655z"/><circle ${f} cx="530" cy="650" r="28"/>`
-};return d[kind]||""}
-function shape(kind,c,o,maskPrefix="",library="legacy-vector-v1",available=false) {if(library==="charcoal-v1")return available?`<rect x="0" y="0" width="900" height="1100" fill="${c}" opacity="${o}" mask="url(#${maskPrefix}charcoal-${kind})"/>`:`<g class="missing-motif" data-missing-motif="${esc(kind)}" aria-label="Missing charcoal motif asset: ${esc(kind)}"></g>`;return library==="legacy-vector-v1"?legacyShape(kind,c,o):""}
-function motif(kind,color,opacity,polygon,scale=1,positionX=0,positionY=0,maskPrefix="",library="legacy-vector-v1",available=false){const xs=polygon.points.map(p=>p.x),ys=polygon.points.map(p=>p.y),x=Math.min(...xs),y=Math.min(...ys),w=Math.max(...xs)-x,h=Math.max(...ys)-y,cx=x+w/2,cy=y+h/2,s=Math.max(.2,Math.min(3,scale)),dx=positionX*w/100,dy=positionY*h/100,transform=`translate(${cx+dx} ${cy+dy}) scale(${w/900*s} ${h/1100*s}) translate(-450 -550)`;const mark=shape(kind,color,opacity,maskPrefix,library,available);if(!mark)return"";if(mark.includes("class=\"missing-motif\""))return mark;return`<g class="motif" data-scale="${s}" data-x="${positionX}" data-y="${positionY}" transform="${transform}" filter="url(#motifInk)" style="paint-order:stroke fill" stroke="${color}" stroke-width="10" stroke-opacity="${Math.min(1,opacity*.38)}">${mark}</g>`}
-export const leadStyles=[["ink","Ink"],["lightning","Lightning"],["straight","Straight"],["wavy","Wavy"],["branch","Branch"],["crackle","Crackle"]];
-function leadTreatment(p){const c="url(#crackChaos)",w=p.lead,s=p.leadStyle||"ink",polys=p.polygons.map(x=>`<polygon points="${pts(x)}"/>`).join("");
-if(s==="straight")return{attrs:`stroke="url(#crackChaos)" stroke-width="${w}" stroke-linejoin="miter"`,extra:""};
-if(s==="lightning")return{attrs:`stroke="url(#crackChaos)" stroke-width="${Math.max(2,w*.38)}" stroke-linejoin="miter" filter="url(#lightning)"`,extra:`<g fill="none" stroke="#9fdcff" stroke-width="${w*1.5}" opacity=".28" filter="url(#lightning)">${polys}</g>`};
-if(s==="wavy")return{attrs:`stroke="url(#crackChaos)" stroke-width="${w*1.15}" stroke-linejoin="round" filter="url(#wavy)"`,extra:`<g fill="none" stroke="#aa6abd" stroke-width="${Math.max(1,w*.2)}" opacity=".65" filter="url(#wavy)">${polys}</g>`};
-if(s==="branch")return{attrs:`stroke="url(#crackChaos)" stroke-width="${Math.max(3,w*.58)}" stroke-linejoin="round"`,extra:`<g fill="none" stroke="url(#crackChaos)" stroke-linecap="round" stroke-width="${Math.max(2,w*.3)}" opacity=".95">${p.polygons.slice(0,24).map((x,i)=>{const a=x.points[0],b=x.points[Math.floor(x.points.length/2)],m={x:(a.x+b.x)/2+((i%3)-1)*35,y:(a.y+b.y)/2-38};return`<path d="M${a.x},${a.y} Q${m.x},${m.y} ${b.x},${b.y}"/><path d="M${m.x},${m.y} l${i%2?38:-38},-46"/>`}).join("")}</g>`};
-if(s==="crackle"){const rr=rng(`${p.seed}:crackle`),paths=Array.from({length:150},()=>{const x=rr()*p.width,y=rr()*p.height,a=rr()*6.28,l=20+rr()*75;return`<path d="M${x.toFixed(1)},${y.toFixed(1)} l${(Math.cos(a)*l).toFixed(1)},${(Math.sin(a)*l).toFixed(1)} l${(Math.cos(a+.8)*l*.55).toFixed(1)},${(Math.sin(a+.8)*l*.55).toFixed(1)}"/>`}).join("");return{attrs:`stroke="url(#crackChaos)" stroke-width="${Math.max(2,w*.32)}" stroke-linejoin="round"`,extra:`<g fill="none" stroke="url(#crackChaos)" stroke-width="${Math.max(1,w*.14)}" opacity=".88">${paths}</g>`}}
-return{attrs:`stroke="${c}" stroke-width="${w}" stroke-linejoin="round" filter="url(#ink)"`,extra:`<g fill="none" stroke="url(#crackChaos)" stroke-width="${w*1.55}" opacity=".28" filter="url(#ink)">${polys}</g>`}}
-export function panelToSVG(p,tileStyles={},options={}){
- const prefix=options.idPrefix?`${options.idPrefix}-`:"",id=name=>`${prefix}${name}`,ref=name=>`url(#${id(name)})`;
- const clips=p.polygons.map(x=>`<clipPath id="${id(`tile-${x.id}`)}"><polygon points="${pts(x)}"/></clipPath>`).join("")+`<clipPath id="${id('text-glass-clip')}">${p.polygons.map(x=>`<polygon points="${pts(x)}"/>`).join("")}</clipPath>`;
- const motion=options.motion||{},motionAmount=motion.enabled?motion.amount??6:0,motionDuration=motion.duration||8;
- const glass=p.polygons.map((x,i)=>{const style=tileStyles[x.id]||{},fill=style.color||x.fill,rr=rng(`${p.seed}:motion:${x.id}`),dx=((rr()-.5)*motionAmount).toFixed(2),dy=((rr()-.5)*motionAmount).toFixed(2),begin=(-rr()*motionDuration).toFixed(2);return`<g class="tile" data-tile="${x.id}" tabindex="0" aria-label="Glass tile ${i+1}"><polygon points="${pts(x)}" fill="${fill}" opacity="${((.82+(i%4)*.04)*(p.glassOpacity??100)/100).toFixed(2)}">${motionAmount?`<animateTransform attributeName="transform" type="translate" values="0 0;${dx} ${dy};0 0;${-dx} ${-dy};0 0" dur="${motionDuration}s" begin="${begin}s" repeatCount="indefinite"/>`:""}</polygon></g>`}).join("");
- const motifs=p.polygons.map(x=>{const style=tileStyles[x.id]||{},mark=motif(style.silhouette,style.silhouetteColor||"#171019",style.opacity??.72,x,style.scale??1,style.positionX??0,style.positionY??0,prefix,options.motifLibrary,Boolean(options.motifAssets?.[style.silhouette]));return mark?`<g clip-path="${ref(`tile-${x.id}`)}" data-tile="${x.id}">${mark.replaceAll('url(#motifInk)',ref('motifInk'))}</g>`:""}).join("");
- const mica=p.polygons.map(x=>{const amount=p.mica??0,density=Math.max(2,Math.round(p.micaDensity??12)),bright=(p.micaBrightness??75)/100;if(!amount)return"";const rr=rng(`${p.seed}:mica:${x.id}`),dots=Array.from({length:density},()=>`<circle cx="${(rr()*p.width).toFixed(1)}" cy="${(rr()*p.height).toFixed(1)}" r="${(1+rr()*5*amount/100).toFixed(1)}" fill="${ref('micaChaos')}" opacity="${(bright*(.3+rr()*.7)*amount/100*(p.micaOpacity??100)/100).toFixed(2)}"/>`).join("");return`<g clip-path="${ref(`tile-${x.id}`)}" class="mica" stroke="none" data-mica="${amount}" data-brightness="${p.micaBrightness??75}" data-density="${density}">${dots}</g>`}).join("");
- let treatment=leadTreatment(p);for(const name of ["crackChaos","ink","wavy","lightning"])treatment={attrs:treatment.attrs.replaceAll(`url(#${name})`,ref(name)),extra:treatment.extra.replaceAll(`url(#${name})`,ref(name))};
- const assets=options.motifAssets||{};
- const usedMotifs=new Set(Object.values(tileStyles).map(style=>style?.silhouette).filter(Boolean));
- const charcoalDefs=Object.entries(assets).filter(([name])=>usedMotifs.has(name)).map(([name,href])=>`<mask id="${id(`charcoal-${name}`)}" maskUnits="userSpaceOnUse" mask-type="alpha" x="0" y="0" width="900" height="1100"><image href="${href}" x="0" y="100" width="900" height="900" preserveAspectRatio="xMidYMid meet"/></mask>`).join("");
- const defs=`<defs>${clips}${charcoalDefs}<pattern id="${id('crackChaos')}" width="180" height="180" patternUnits="userSpaceOnUse"><rect width="180" height="180" fill="${p.crackColor1||"#35243a"}"/>${Array.from({length:18},(_,i)=>{const rr=rng(`${p.seed}:crack-chaos:${i}`),x=(rr()*180).toFixed(1),y=(rr()*180).toFixed(1),r=(12+rr()*52).toFixed(1);return`<circle cx="${x}" cy="${y}" r="${r}" fill="${p.crackColor2||"#76507a"}" opacity="${(.25+rr()*.7).toFixed(2)}"/>`}).join("")}</pattern><pattern id="${id('micaChaos')}" width="140" height="140" patternUnits="userSpaceOnUse"><rect width="140" height="140" fill="${p.micaColor1||"#fffbe8"}"/>${Array.from({length:22},(_,i)=>{const rr=rng(`${p.seed}:mica-chaos:${i}`);return`<circle cx="${(rr()*140).toFixed(1)}" cy="${(rr()*140).toFixed(1)}" r="${(5+rr()*35).toFixed(1)}" fill="${p.micaColor2||"#b9e8ff"}" opacity="${(.2+rr()*.8).toFixed(2)}"/>`}).join("")}</pattern><filter id="${id('motifInk')}" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency=".012" numOctaves="2" seed="19" result="grain"/><feDisplacementMap in="SourceGraphic" in2="grain" scale="2" result="rough"/><feDropShadow dx="4" dy="6" stdDeviation="4" flood-color="#120d15" flood-opacity=".28"/></filter><filter id="${id('ink')}"><feTurbulence baseFrequency=".018" numOctaves="2" seed="7" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="7"/></filter><filter id="${id('wavy')}"><feTurbulence baseFrequency=".009" numOctaves="1" seed="11" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="18"/></filter><filter id="${id('lightning')}"><feGaussianBlur stdDeviation="3" result="glow"/><feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="${id('glow')}"><feGaussianBlur stdDeviation="18"/></filter><linearGradient id="${id('wash')}" y2="1"><stop stop-color="#fff" stop-opacity=".42"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>`;
- const layer=(name,body)=>`<g id="${id(name)}" data-lightwell-layer="${name}"${name==="glass"?"":' pointer-events="none"'}>${body}</g>`;
- const text=options.text||{},anchor={start:"start",middle:"middle",end:"end"}[text.align]||"middle",textMarkup=text.content?`<text x="${p.width*(text.x??50)/100}" y="${p.height*(text.y??50)/100}" fill="${esc(text.color||"#fff6dc")}" opacity="${(text.opacity??100)/100}" font-size="${text.size||72}" font-family="${esc(text.font||"serif")}" text-anchor="${anchor}" dominant-baseline="middle"${text.clip?` clip-path="${ref('text-glass-clip')}"`:""} transform="rotate(${text.rotation||0} ${p.width*(text.x??50)/100} ${p.height*(text.y??50)/100})">${esc(text.content)}</text>`:"";
- const head=options.head||"",attrs=options.rootAttributes?` ${options.rootAttributes}`:"";
- return`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${p.width} ${p.height}" role="img" aria-label="Seeded stained-glass panel ${esc(p.seed)}"${attrs}>${head}${defs}${layer('background','<rect width="100%" height="100%" rx="18" fill="#2b202d"/>')}${layer('glass',glass)}${layer('mica',mica)}${layer('motifs',motifs)}${layer('lead',`<g ${treatment.attrs} stroke-opacity="${(p.crackOpacity??100)/100}">${p.polygons.map(x=>`<polygon points="${pts(x)}" fill="none"/>`).join("")}</g><g opacity="${(p.crackOpacity??100)/100}">${treatment.extra}</g>`)}${layer('lighting',`<ellipse cx="48%" cy="36%" rx="36%" ry="32%" fill="#fff4df" opacity=".25" filter="${ref('glow')}"/>`)}${layer('text',textMarkup)}${layer('frame',`<rect x="${p.lead/2}" y="${p.lead/2}" width="${p.width-p.lead}" height="${p.height-p.lead}" rx="14" fill="${ref('wash')}" pointer-events="none" stroke="#35243a" stroke-width="${p.lead}"/>`)}</svg>`}
+import { CURRENT_LIBRARY, motifManifest } from './catalog/motif-manifest.js';
+export function hsvToHex(h, s, v) {
+  h = ((Number(h) % 360) + 360) % 360;
+  s = Math.max(0, Math.min(100, Number(s))) / 100;
+  v = Math.max(0, Math.min(100, Number(v))) / 100;
+  const c = v * s,
+    x = c * (1 - Math.abs(((h / 60) % 2) - 1)),
+    m = v - c;
+  let a = [0, 0, 0];
+  if (h < 60) a = [c, x, 0];
+  else if (h < 120) a = [x, c, 0];
+  else if (h < 180) a = [0, c, x];
+  else if (h < 240) a = [0, x, c];
+  else if (h < 300) a = [x, 0, c];
+  else a = [c, 0, x];
+  return (
+    '#' +
+    a
+      .map((n) =>
+        Math.round((n + m) * 255)
+          .toString(16)
+          .padStart(2, '0')
+      )
+      .join('')
+  );
+}
+export function colorFamily(hue, saturation, value, count = 7) {
+  const offsets = [0, 28, -32, 58, -66, 110, 180];
+  return Array.from({ length: count }, (_, i) =>
+    hsvToHex(
+      hue + offsets[i % offsets.length],
+      Math.max(12, saturation - (i % 3) * 10),
+      Math.min(100, value + (i % 2) * 7)
+    )
+  );
+}
+export function hashSeed(seed) {
+  let h = 2166136261;
+  for (const c of String(seed)) {
+    h ^= c.charCodeAt(0);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+export function rng(seed) {
+  let a = hashSeed(seed);
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function clip(poly, a, b, c) {
+  const out = [];
+  for (let i = 0; i < poly.length; i++) {
+    const p = poly[i],
+      q = poly[(i + 1) % poly.length],
+      dp = a * p.x + b * p.y - c,
+      dq = a * q.x + b * q.y - c,
+      inside = dp <= 1e-7,
+      next = dq <= 1e-7;
+    if (inside) out.push(p);
+    if (inside !== next) {
+      const t = dp / (dp - dq);
+      out.push({ x: p.x + t * (q.x - p.x), y: p.y + t * (q.y - p.y) });
+    }
+  }
+  return out;
+}
+function cell(p, others, x0, x1, y0, y1) {
+  let poly = [
+    { x: x0, y: y0 },
+    { x: x1, y: y0 },
+    { x: x1, y: y1 },
+    { x: x0, y: y1 },
+  ];
+  for (const q of others) {
+    poly = clip(
+      poly,
+      2 * (q.x - p.x),
+      2 * (q.y - p.y),
+      q.x * q.x + q.y * q.y - p.x * p.x - p.y * p.y
+    );
+    if (!poly.length) break;
+  }
+  return poly;
+}
+export function makePanel({
+  seed = 'aventurine',
+  width = 900,
+  height = 1100,
+  cells = 32,
+  hue = 282,
+  saturation = 38,
+  value = 84,
+  lead = 9,
+  leadStyle = 'ink',
+  crackColor1 = '#35243a',
+  crackColor2 = '#76507a',
+  crackOpacity = 100,
+  mica = 0,
+  micaBrightness = 75,
+  micaDensity = 12,
+  micaColor1 = '#fffbe8',
+  micaColor2 = '#b9e8ff',
+  micaOpacity = 100,
+  glassOpacity = 100,
+} = {}) {
+  const r = rng(seed),
+    colors = colorFamily(hue, saturation, value),
+    m = Math.min(width, height) * 0.06,
+    pts = [];
+  for (let i = 0; i < Math.max(1, cells - 4); i++)
+    pts.push({
+      x: m + r() * (width - 2 * m),
+      y: m + r() * (height - 2 * m),
+      c: colors[Math.floor(r() * colors.length)],
+    });
+  pts.push(
+    { x: m, y: m, c: colors[0] },
+    { x: width - m, y: m, c: colors[1] },
+    { x: width - m, y: height - m, c: colors[2] },
+    { x: m, y: height - m, c: colors[3] }
+  );
+  return {
+    seed,
+    width,
+    height,
+    hue,
+    saturation,
+    value,
+    lead,
+    leadStyle,
+    crackColor1,
+    crackColor2,
+    crackOpacity,
+    mica,
+    micaBrightness,
+    micaDensity,
+    micaColor1,
+    micaColor2,
+    micaOpacity,
+    glassOpacity,
+    polygons: pts
+      .map((p, i) => ({
+        id: i,
+        fill: p.c,
+        points: cell(
+          p,
+          pts.filter((_, j) => j !== i),
+          m,
+          width - m,
+          m,
+          height - m
+        ),
+      }))
+      .filter((x) => x.points.length > 2),
+  };
+}
+const esc = (s) =>
+  String(s).replace(
+    /[&<>"]/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
+  );
+const pts = (x) =>
+  x.points.map((q) => `${q.x.toFixed(2)},${q.y.toFixed(2)}`).join(' ');
+export const silhouettes = motifManifest
+  .filter((x) => x.libraries[CURRENT_LIBRARY])
+  .map((x) => [x.id, x.label]);
+function legacyShape(kind, c, o) {
+  const f = `fill="${c}" opacity="${o}"`,
+    st = `fill="none" stroke="${c}" stroke-width="55" stroke-linecap="round" stroke-linejoin="round" opacity="${o}"`;
+  const d = {
+    leaf: `<path ${f} d="M446 945C160 770 170 300 545 125c175 305 60 640-99 820z"/><path ${st} d="M445 875L520 220M458 690L290 555M478 510L625 405"/>`,
+    moon: `<path ${f} d="M680 145c-330 105-335 655 10 810C160 985 30 300 390 80c108-66 215-69 290-45-9 38-9 74 0 110z"/>`,
+    spark: `<path ${f} d="M450 55l105 365 325 130-325 130-105 365-105-365L20 550l325-130z"/>`,
+    sun: `<circle ${f} cx="450" cy="550" r="230"/><g ${st}>${[0, 45, 90, 135, 180, 225, 270, 315].map((a) => `<path d="M450 95v110" transform="rotate(${a} 450 550)"/>`).join('')}</g>`,
+    flower: `<g ${f}>${[0, 60, 120, 180, 240, 300].map((a) => `<ellipse cx="450" cy="315" rx="115" ry="225" transform="rotate(${a} 450 550)"/>`).join('')}<circle cx="450" cy="550" r="105"/></g>`,
+    fern: `<path ${st} d="M330 980Q500 680 490 130M440 820l-205-95M455 735l235-120M468 635l-210-110M477 535l205-120M484 430l-170-90M488 335l150-100"/>`,
+    mushroom: `<path ${f} d="M175 520Q210 160 450 130T725 520H175zm190 15h170l80 420H285z"/>`,
+    moth: `<path ${f} d="M435 390C230 90 45 250 175 585c70 180 200 145 260 35v290h30V620c60 110 190 145 260-35C855 250 670 90 465 390z"/><circle ${f} cx="450" cy="350" r="55"/>`,
+    bird: `<path ${f} d="M70 635q215-300 380-75 165-225 380 75-240-105-380 160Q310 530 70 635z"/>`,
+    cat: `<path ${f} d="M220 410l35-260 190 150 200-150 35 260q75 145 5 350T450 975Q285 960 215 760t5-350z"/><path d="M340 570l55 25M560 595l55-25" ${st}/>`,
+    fox: `<path ${f} d="M105 205l285 130 60 625 60-625 285-130-85 560-260 220-260-220z"/><path fill="#fff" opacity=".45" d="M260 510l190 450 190-450-190 150z"/>`,
+    rabbit: `<path ${f} d="M300 415Q165 30 335 35q110 115 115 335Q460 35 570 35q170-5 35 380 165 100 110 350T450 1010 185 765q-55-250 115-350z"/>`,
+    fish: `<path ${f} d="M120 555q230-310 540 0-310 310-540 0zm530 0 200-210v420z"/><circle cx="305" cy="505" r="25" fill="#fff"/>`,
+    snake: `<path ${st} d="M630 135C155 120 740 420 300 555s275 300-40 455"/><path ${f} d="M590 90l180 55-145 120z"/>`,
+    shell: `<path ${st} d="M450 900C80 770 120 200 500 175c360-20 430 475 95 600-255 95-395-225-175-355 155-90 275 115 140 210-75 50-155-25-105-85"/>`,
+    mountain: `<path ${f} d="M20 950l285-570 120 210 150-430 305 790z"/><path fill="#fff" opacity=".45" d="M455 505l120-345 105 290-105-80z"/>`,
+    wave: `<path ${f} d="M35 770q170-500 515-370-170 25-185 190 315-205 500 95-145-105-270 45 135 25 235 180H35z"/>`,
+    cloud: `<path ${f} d="M150 770q-135-210 95-290 35-260 280-160 195-40 230 170 185 95 20 280z"/>`,
+    rain: `<path ${f} d="M145 590q-120-190 90-260 35-230 255-140 180-35 215 150 165 80 20 250z"/><g ${st}><path d="M260 700l-55 160M450 700l-55 160M640 700l-55 160"/></g>`,
+    flame: `<path ${f} d="M450 1010C95 815 265 565 390 430q110-120 65-355 345 260 260 575-65 265-265 360zm0-125q145-80 85-230-30-75-40-170-145 155-45 400z"/>`,
+    eye: `<path ${f} d="M45 550q405-450 810 0-405 450-810 0z"/><ellipse fill="#fff" opacity=".55" cx="450" cy="550" rx="145" ry="200"/><circle ${f} cx="450" cy="550" r="85"/>`,
+    hand: `<path ${f} d="M280 965l-35-420q-8-90 60-95 50 0 65 70V210q0-75 65-75t65 75v240-300q0-70 62-70t62 70v340-230q0-65 58-65t58 65v370q0 280-215 365z"/>`,
+    heart: `<path ${f} d="M450 1010C90 750 85 385 300 270q105-55 170 60 70-115 180-45 235 150 60 430z"/>`,
+    key: `<circle ${st} cx="300" cy="330" r="185"/><path ${st} d="M430 460l355 400M650 710l80-85M720 785l80-80"/>`,
+    crown: `<path ${f} d="M110 875L55 260l235 230 160-330 160 330 235-230-55 615z"/>`,
+    hourglass: `<path ${st} d="M235 120h430M235 980h430M290 145q0 250 160 405-160 155-160 405M610 145q0 250-160 405 160 155 160 405"/>`,
+    lantern: `<path ${f} d="M245 315h410l80 610H165z"/><path ${st} d="M330 305q0-210 120-210t120 210M265 520h370M300 850h300"/>`,
+    bottle: `<path ${f} d="M355 85h190v235q150 110 155 365 0 260-250 260S200 945 200 685q5-255 155-365z"/><path fill="#fff" opacity=".4" d="M245 650h410v235H245z"/>`,
+    crystal: `<path ${f} d="M70 930l110-480 160-185 110 170 135-330 190 330 70 495z"/>`,
+    planet: `<circle ${f} cx="450" cy="550" r="245"/><ellipse ${st} cx="450" cy="550" rx="410" ry="135" transform="rotate(-18 450 550)"/>`,
+    comet: `<path ${f} d="M610 185a180 180 0 11-1 360 180 180 0 011-360zM55 925l390-500 70 70zM150 980l405-430 45 85z"/>`,
+    constellation: `<g ${st}><path d="M150 820l155-420 190 175 235-390M305 400l-55-220M495 575l155 300"/></g><g ${f}>${[
+      [150, 820],
+      [305, 400],
+      [495, 575],
+      [730, 185],
+      [250, 180],
+      [650, 875],
+    ]
+      .map(([x, y]) => `<circle cx="${x}" cy="${y}" r="42"/>`)
+      .join('')}</g>`,
+    arch: `<path ${st} d="M175 970V500q0-390 275-390t275 390v470M300 970V520q0-215 150-215t150 215v450"/>`,
+    tower: `<path ${f} d="M245 985l45-690h75V125h80v170h90V125h80v170h75l45 690z"/><path fill="#fff" opacity=".45" d="M410 720h80v265h-80z"/>`,
+    door: `<path ${f} d="M210 985V280q0-190 240-190t240 190v705z"/><path fill="#fff" opacity=".45" d="M325 985V330q0-85 125-85t125 85v655z"/><circle ${f} cx="530" cy="650" r="28"/>`,
+  };
+  return d[kind] || '';
+}
+function shape(
+  kind,
+  c,
+  o,
+  maskPrefix = '',
+  library = 'legacy-vector-v1',
+  available = false
+) {
+  if (library === 'charcoal-v1')
+    return available
+      ? `<rect x="0" y="0" width="900" height="1100" fill="${c}" opacity="${o}" mask="url(#${maskPrefix}charcoal-${kind})"/>`
+      : `<g class="missing-motif" data-missing-motif="${esc(kind)}" aria-label="Missing charcoal motif asset: ${esc(kind)}"></g>`;
+  return library === 'legacy-vector-v1' ? legacyShape(kind, c, o) : '';
+}
+function motif(
+  kind,
+  color,
+  opacity,
+  polygon,
+  scale = 1,
+  positionX = 0,
+  positionY = 0,
+  maskPrefix = '',
+  library = 'legacy-vector-v1',
+  available = false
+) {
+  const xs = polygon.points.map((p) => p.x),
+    ys = polygon.points.map((p) => p.y),
+    x = Math.min(...xs),
+    y = Math.min(...ys),
+    w = Math.max(...xs) - x,
+    h = Math.max(...ys) - y,
+    cx = x + w / 2,
+    cy = y + h / 2,
+    s = Math.max(0.2, Math.min(3, scale)),
+    dx = (positionX * w) / 100,
+    dy = (positionY * h) / 100,
+    transform = `translate(${cx + dx} ${cy + dy}) scale(${(w / 900) * s} ${(h / 1100) * s}) translate(-450 -550)`;
+  const mark = shape(kind, color, opacity, maskPrefix, library, available);
+  if (!mark) return '';
+  if (mark.includes('class="missing-motif"')) return mark;
+  return `<g class="motif" data-scale="${s}" data-x="${positionX}" data-y="${positionY}" transform="${transform}" filter="url(#motifInk)" style="paint-order:stroke fill" stroke="${color}" stroke-width="10" stroke-opacity="${Math.min(1, opacity * 0.38)}">${mark}</g>`;
+}
+export const leadStyles = [
+  ['ink', 'Ink'],
+  ['lightning', 'Lightning'],
+  ['straight', 'Straight'],
+  ['wavy', 'Wavy'],
+  ['branch', 'Branch'],
+  ['crackle', 'Crackle'],
+];
+function leadTreatment(p) {
+  const c = 'url(#crackChaos)',
+    w = p.lead,
+    s = p.leadStyle || 'ink',
+    polys = p.polygons.map((x) => `<polygon points="${pts(x)}"/>`).join('');
+  if (s === 'straight')
+    return {
+      attrs: `stroke="url(#crackChaos)" stroke-width="${w}" stroke-linejoin="miter"`,
+      extra: '',
+    };
+  if (s === 'lightning')
+    return {
+      attrs: `stroke="url(#crackChaos)" stroke-width="${Math.max(2, w * 0.38)}" stroke-linejoin="miter" filter="url(#lightning)"`,
+      extra: `<g fill="none" stroke="#9fdcff" stroke-width="${w * 1.5}" opacity=".28" filter="url(#lightning)">${polys}</g>`,
+    };
+  if (s === 'wavy')
+    return {
+      attrs: `stroke="url(#crackChaos)" stroke-width="${w * 1.15}" stroke-linejoin="round" filter="url(#wavy)"`,
+      extra: `<g fill="none" stroke="#aa6abd" stroke-width="${Math.max(1, w * 0.2)}" opacity=".65" filter="url(#wavy)">${polys}</g>`,
+    };
+  if (s === 'branch')
+    return {
+      attrs: `stroke="url(#crackChaos)" stroke-width="${Math.max(3, w * 0.58)}" stroke-linejoin="round"`,
+      extra: `<g fill="none" stroke="url(#crackChaos)" stroke-linecap="round" stroke-width="${Math.max(2, w * 0.3)}" opacity=".95">${p.polygons
+        .slice(0, 24)
+        .map((x, i) => {
+          const a = x.points[0],
+            b = x.points[Math.floor(x.points.length / 2)],
+            m = {
+              x: (a.x + b.x) / 2 + ((i % 3) - 1) * 35,
+              y: (a.y + b.y) / 2 - 38,
+            };
+          return `<path d="M${a.x},${a.y} Q${m.x},${m.y} ${b.x},${b.y}"/><path d="M${m.x},${m.y} l${i % 2 ? 38 : -38},-46"/>`;
+        })
+        .join('')}</g>`,
+    };
+  if (s === 'crackle') {
+    const rr = rng(`${p.seed}:crackle`),
+      paths = Array.from({ length: 150 }, () => {
+        const x = rr() * p.width,
+          y = rr() * p.height,
+          a = rr() * 6.28,
+          l = 20 + rr() * 75;
+        return `<path d="M${x.toFixed(1)},${y.toFixed(1)} l${(Math.cos(a) * l).toFixed(1)},${(Math.sin(a) * l).toFixed(1)} l${(Math.cos(a + 0.8) * l * 0.55).toFixed(1)},${(Math.sin(a + 0.8) * l * 0.55).toFixed(1)}"/>`;
+      }).join('');
+    return {
+      attrs: `stroke="url(#crackChaos)" stroke-width="${Math.max(2, w * 0.32)}" stroke-linejoin="round"`,
+      extra: `<g fill="none" stroke="url(#crackChaos)" stroke-width="${Math.max(1, w * 0.14)}" opacity=".88">${paths}</g>`,
+    };
+  }
+  return {
+    attrs: `stroke="${c}" stroke-width="${w}" stroke-linejoin="round" filter="url(#ink)"`,
+    extra: `<g fill="none" stroke="url(#crackChaos)" stroke-width="${w * 1.55}" opacity=".28" filter="url(#ink)">${polys}</g>`,
+  };
+}
+export function panelToSVG(p, tileStyles = {}, options = {}) {
+  const prefix = options.idPrefix ? `${options.idPrefix}-` : '',
+    id = (name) => `${prefix}${name}`,
+    ref = (name) => `url(#${id(name)})`;
+  const clips =
+    p.polygons
+      .map(
+        (x) =>
+          `<clipPath id="${id(`tile-${x.id}`)}"><polygon points="${pts(x)}"/></clipPath>`
+      )
+      .join('') +
+    `<clipPath id="${id('text-glass-clip')}">${p.polygons.map((x) => `<polygon points="${pts(x)}"/>`).join('')}</clipPath>`;
+  const motion = options.motion || {},
+    motionAmount = motion.enabled ? (motion.amount ?? 6) : 0,
+    motionDuration = motion.duration || 8;
+  const glass = p.polygons
+    .map((x, i) => {
+      const style = tileStyles[x.id] || {},
+        fill = style.color || x.fill,
+        rr = rng(`${p.seed}:motion:${x.id}`),
+        dx = ((rr() - 0.5) * motionAmount).toFixed(2),
+        dy = ((rr() - 0.5) * motionAmount).toFixed(2),
+        begin = (-rr() * motionDuration).toFixed(2);
+      return `<g class="tile" data-tile="${x.id}" tabindex="0" aria-label="Glass tile ${i + 1}"><polygon points="${pts(x)}" fill="${fill}" opacity="${(((0.82 + (i % 4) * 0.04) * (p.glassOpacity ?? 100)) / 100).toFixed(2)}">${motionAmount ? `<animateTransform attributeName="transform" type="translate" values="0 0;${dx} ${dy};0 0;${-dx} ${-dy};0 0" dur="${motionDuration}s" begin="${begin}s" repeatCount="indefinite"/>` : ''}</polygon></g>`;
+    })
+    .join('');
+  const motifs = p.polygons
+    .map((x) => {
+      const style = tileStyles[x.id] || {},
+        mark = motif(
+          style.silhouette,
+          style.silhouetteColor || '#171019',
+          style.opacity ?? 0.72,
+          x,
+          style.scale ?? 1,
+          style.positionX ?? 0,
+          style.positionY ?? 0,
+          prefix,
+          options.motifLibrary,
+          Boolean(options.motifAssets?.[style.silhouette])
+        );
+      return mark
+        ? `<g clip-path="${ref(`tile-${x.id}`)}" data-tile="${x.id}">${mark.replaceAll('url(#motifInk)', ref('motifInk'))}</g>`
+        : '';
+    })
+    .join('');
+  const mica = p.polygons
+    .map((x) => {
+      const amount = p.mica ?? 0,
+        density = Math.max(2, Math.round(p.micaDensity ?? 12)),
+        bright = (p.micaBrightness ?? 75) / 100;
+      if (!amount) return '';
+      const rr = rng(`${p.seed}:mica:${x.id}`),
+        dots = Array.from(
+          { length: density },
+          () =>
+            `<circle cx="${(rr() * p.width).toFixed(1)}" cy="${(rr() * p.height).toFixed(1)}" r="${(1 + (rr() * 5 * amount) / 100).toFixed(1)}" fill="${ref('micaChaos')}" opacity="${((((bright * (0.3 + rr() * 0.7) * amount) / 100) * (p.micaOpacity ?? 100)) / 100).toFixed(2)}"/>`
+        ).join('');
+      return `<g clip-path="${ref(`tile-${x.id}`)}" class="mica" stroke="none" data-mica="${amount}" data-brightness="${p.micaBrightness ?? 75}" data-density="${density}">${dots}</g>`;
+    })
+    .join('');
+  let treatment = leadTreatment(p);
+  for (const name of ['crackChaos', 'ink', 'wavy', 'lightning'])
+    treatment = {
+      attrs: treatment.attrs.replaceAll(`url(#${name})`, ref(name)),
+      extra: treatment.extra.replaceAll(`url(#${name})`, ref(name)),
+    };
+  const assets = options.motifAssets || {};
+  const usedMotifs = new Set(
+    Object.values(tileStyles)
+      .map((style) => style?.silhouette)
+      .filter(Boolean)
+  );
+  const charcoalDefs = Object.entries(assets)
+    .filter(([name]) => usedMotifs.has(name))
+    .map(
+      ([name, href]) =>
+        `<mask id="${id(`charcoal-${name}`)}" maskUnits="userSpaceOnUse" mask-type="alpha" x="0" y="0" width="900" height="1100"><image href="${href}" x="0" y="100" width="900" height="900" preserveAspectRatio="xMidYMid meet"/></mask>`
+    )
+    .join('');
+  const defs = `<defs>${clips}${charcoalDefs}<pattern id="${id('crackChaos')}" width="180" height="180" patternUnits="userSpaceOnUse"><rect width="180" height="180" fill="${p.crackColor1 || '#35243a'}"/>${Array.from(
+    { length: 18 },
+    (_, i) => {
+      const rr = rng(`${p.seed}:crack-chaos:${i}`),
+        x = (rr() * 180).toFixed(1),
+        y = (rr() * 180).toFixed(1),
+        r = (12 + rr() * 52).toFixed(1);
+      return `<circle cx="${x}" cy="${y}" r="${r}" fill="${p.crackColor2 || '#76507a'}" opacity="${(0.25 + rr() * 0.7).toFixed(2)}"/>`;
+    }
+  ).join(
+    ''
+  )}</pattern><pattern id="${id('micaChaos')}" width="140" height="140" patternUnits="userSpaceOnUse"><rect width="140" height="140" fill="${p.micaColor1 || '#fffbe8'}"/>${Array.from(
+    { length: 22 },
+    (_, i) => {
+      const rr = rng(`${p.seed}:mica-chaos:${i}`);
+      return `<circle cx="${(rr() * 140).toFixed(1)}" cy="${(rr() * 140).toFixed(1)}" r="${(5 + rr() * 35).toFixed(1)}" fill="${p.micaColor2 || '#b9e8ff'}" opacity="${(0.2 + rr() * 0.8).toFixed(2)}"/>`;
+    }
+  ).join(
+    ''
+  )}</pattern><filter id="${id('motifInk')}" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency=".012" numOctaves="2" seed="19" result="grain"/><feDisplacementMap in="SourceGraphic" in2="grain" scale="2" result="rough"/><feDropShadow dx="4" dy="6" stdDeviation="4" flood-color="#120d15" flood-opacity=".28"/></filter><filter id="${id('ink')}"><feTurbulence baseFrequency=".018" numOctaves="2" seed="7" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="7"/></filter><filter id="${id('wavy')}"><feTurbulence baseFrequency=".009" numOctaves="1" seed="11" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="18"/></filter><filter id="${id('lightning')}"><feGaussianBlur stdDeviation="3" result="glow"/><feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="${id('glow')}"><feGaussianBlur stdDeviation="18"/></filter><linearGradient id="${id('wash')}" y2="1"><stop stop-color="#fff" stop-opacity=".42"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>`;
+  const layer = (name, body) =>
+    `<g id="${id(name)}" data-lightwell-layer="${name}"${name === 'glass' ? '' : ' pointer-events="none"'}>${body}</g>`;
+  const text = options.text || {},
+    anchor =
+      { start: 'start', middle: 'middle', end: 'end' }[text.align] || 'middle',
+    textMarkup = text.content
+      ? `<text x="${(p.width * (text.x ?? 50)) / 100}" y="${(p.height * (text.y ?? 50)) / 100}" fill="${esc(text.color || '#fff6dc')}" opacity="${(text.opacity ?? 100) / 100}" font-size="${text.size || 72}" font-family="${esc(text.font || 'serif')}" text-anchor="${anchor}" dominant-baseline="middle"${text.clip ? ` clip-path="${ref('text-glass-clip')}"` : ''} transform="rotate(${text.rotation || 0} ${(p.width * (text.x ?? 50)) / 100} ${(p.height * (text.y ?? 50)) / 100})">${esc(text.content)}</text>`
+      : '';
+  const head = options.head || '',
+    attrs = options.rootAttributes ? ` ${options.rootAttributes}` : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${p.width} ${p.height}" role="img" aria-label="Seeded stained-glass panel ${esc(p.seed)}"${attrs}>${head}${defs}${layer('background', '<rect width="100%" height="100%" rx="18" fill="#2b202d"/>')}${layer('glass', glass)}${layer('mica', mica)}${layer('motifs', motifs)}${layer('lead', `<g ${treatment.attrs} stroke-opacity="${(p.crackOpacity ?? 100) / 100}">${p.polygons.map((x) => `<polygon points="${pts(x)}" fill="none"/>`).join('')}</g><g opacity="${(p.crackOpacity ?? 100) / 100}">${treatment.extra}</g>`)}${layer('lighting', `<ellipse cx="48%" cy="36%" rx="36%" ry="32%" fill="#fff4df" opacity=".25" filter="${ref('glow')}"/>`)}${layer('text', textMarkup)}${layer('frame', `<rect x="${p.lead / 2}" y="${p.lead / 2}" width="${p.width - p.lead}" height="${p.height - p.lead}" rx="14" fill="${ref('wash')}" pointer-events="none" stroke="#35243a" stroke-width="${p.lead}"/>`)}</svg>`;
+}

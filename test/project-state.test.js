@@ -1,13 +1,168 @@
-import test from "node:test";
-import assert from "node:assert/strict";
-import { createProject, normalizeProject, panelOptions, PROJECT_SCHEMA, PROJECT_VERSION, serializeProject } from "../src/model/schema.js";
-import { createStore } from "../src/model/store.js";
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  createProject,
+  normalizeProject,
+  panelOptions,
+  PROJECT_SCHEMA,
+  PROJECT_VERSION,
+  serializeProject,
+} from '../src/model/schema.js';
+import { createStore } from '../src/model/store.js';
 
-test("project state has a versioned serializable geometry/material/tile model",()=>{const p=createProject();assert.equal(p.schema,PROJECT_SCHEMA);assert.equal(p.version,PROJECT_VERSION);assert.ok(p.geometry&&p.material&&p.defaults&&p.tiles);assert.deepEqual(normalizeProject(JSON.parse(serializeProject(p))),p)});
-test("v0.1 controls map exactly to panel generator options",()=>{const p=createProject({seed:"glass",orientation:"landscape",pieceCount:5,hue:10,saturation:20,value:30,glassOpacity:40,leadWidth:7,leadStyle:"wavy",crackColors:["#112233","#445566"],crackOpacity:50,micaAmount:60,micaBrightness:70,micaDensity:20,micaColors:["#778899","#aabbcc"],micaOpacity:80});assert.deepEqual(panelOptions(p),{seed:"glass",cells:5,width:1200,height:760,hue:10,saturation:20,value:30,glassOpacity:40,lead:7,leadStyle:"wavy",crackColor1:"#112233",crackColor2:"#445566",crackOpacity:50,mica:60,micaBrightness:70,micaDensity:20,micaColor1:"#778899",micaColor2:"#aabbcc",micaOpacity:80})});
-test("normalization rejects wrong versions and clamps unsafe values",()=>{assert.throws(()=>normalizeProject({schema:PROJECT_SCHEMA,version:999}),/Unsupported/);const p=createProject({pieceCount:999,leadStyle:"bogus",crackColors:["url(x)","#ABCDEF"]});assert.equal(p.geometry.pieceCount,70);assert.equal(p.material.lead.style,"ink");assert.deepEqual(p.material.lead.colors,["#35243a","#abcdef"])});
-test("store snapshots cannot mutate current state and subscriptions can detach",()=>{const s=createStore(createProject()),seen=[];const off=s.subscribe(p=>seen.push(p.geometry.pieceCount));const snapshot=s.getState();snapshot.geometry.pieceCount=5;assert.equal(s.getState().geometry.pieceCount,32);s.update(p=>{p.geometry.pieceCount=12});off();s.update(p=>{p.geometry.pieceCount=14});assert.deepEqual(seen,[12]);assert.equal(s.getState().geometry.pieceCount,14)});
-test("per-tile overrides are normalized as untrusted data",()=>{const p=createProject({tiles:{"0":{color:'\"/><script>alert(1)</script>',silhouette:'<use href="https://evil">',silhouetteColor:'url(javascript:evil)',opacity:99,scale:-4,positionX:Infinity,positionY:-999}}});assert.deepEqual(p.tiles,{"0":{color:"#9b70b4",silhouette:"none",silhouetteColor:"#171019",opacity:1,scale:.2,positionX:0,positionY:-100}})});
-test("unknown tile override fields are rejected",()=>{assert.throws(()=>createProject({tiles:{"0":{color:"#abcdef",onclick:"alert(1)"}}}),/Unknown tile override key/)});
-test("new projects declare the charcoal library and serialized identity includes it",()=>{const p=createProject({seed:"identity"});assert.equal(p.motifLibrary,"charcoal-v1");assert.match(serializeProject(p),/"motifLibrary":"charcoal-v1"/)});
-test("phase 9 text and motion are canonical and bounded",()=>{const p=createProject({text:{content:"Hello glass",color:"#abcdef",opacity:80,size:96,x:20,y:75,rotation:30,font:"sans-serif",align:"end",clip:true},motion:{enabled:true,amount:12,duration:9}});assert.equal(p.version,4);assert.deepEqual(p.text,{content:"Hello glass",color:"#abcdef",opacity:80,size:96,x:20,y:75,rotation:30,font:"sans-serif",align:"end",clip:true});assert.deepEqual(p.motion,{enabled:true,amount:12,duration:9,mode:"drift-v1"});assert.match(serializeProject(p),/"motion":\{"enabled":true/)});
+test('project state has a versioned serializable geometry/material/tile model', () => {
+  const p = createProject();
+  assert.equal(p.schema, PROJECT_SCHEMA);
+  assert.equal(p.version, PROJECT_VERSION);
+  assert.ok(p.geometry && p.material && p.defaults && p.tiles);
+  assert.deepEqual(normalizeProject(JSON.parse(serializeProject(p))), p);
+});
+test('v0.1 controls map exactly to panel generator options', () => {
+  const p = createProject({
+    seed: 'glass',
+    orientation: 'landscape',
+    pieceCount: 5,
+    hue: 10,
+    saturation: 20,
+    value: 30,
+    glassOpacity: 40,
+    leadWidth: 7,
+    leadStyle: 'wavy',
+    crackColors: ['#112233', '#445566'],
+    crackOpacity: 50,
+    micaAmount: 60,
+    micaBrightness: 70,
+    micaDensity: 20,
+    micaColors: ['#778899', '#aabbcc'],
+    micaOpacity: 80,
+  });
+  assert.deepEqual(panelOptions(p), {
+    seed: 'glass',
+    cells: 5,
+    width: 1200,
+    height: 760,
+    hue: 10,
+    saturation: 20,
+    value: 30,
+    glassOpacity: 40,
+    lead: 7,
+    leadStyle: 'wavy',
+    crackColor1: '#112233',
+    crackColor2: '#445566',
+    crackOpacity: 50,
+    mica: 60,
+    micaBrightness: 70,
+    micaDensity: 20,
+    micaColor1: '#778899',
+    micaColor2: '#aabbcc',
+    micaOpacity: 80,
+  });
+});
+test('normalization rejects wrong versions and clamps unsafe values', () => {
+  assert.throws(
+    () => normalizeProject({ schema: PROJECT_SCHEMA, version: 999 }),
+    /Unsupported/
+  );
+  const p = createProject({
+    pieceCount: 999,
+    leadStyle: 'bogus',
+    crackColors: ['url(x)', '#ABCDEF'],
+  });
+  assert.equal(p.geometry.pieceCount, 70);
+  assert.equal(p.material.lead.style, 'ink');
+  assert.deepEqual(p.material.lead.colors, ['#35243a', '#abcdef']);
+});
+test('store snapshots cannot mutate current state and subscriptions can detach', () => {
+  const s = createStore(createProject()),
+    seen = [];
+  const off = s.subscribe((p) => seen.push(p.geometry.pieceCount));
+  const snapshot = s.getState();
+  snapshot.geometry.pieceCount = 5;
+  assert.equal(s.getState().geometry.pieceCount, 32);
+  s.update((p) => {
+    p.geometry.pieceCount = 12;
+  });
+  off();
+  s.update((p) => {
+    p.geometry.pieceCount = 14;
+  });
+  assert.deepEqual(seen, [12]);
+  assert.equal(s.getState().geometry.pieceCount, 14);
+});
+test('per-tile overrides are normalized as untrusted data', () => {
+  const p = createProject({
+    tiles: {
+      0: {
+        color: '\"/><script>alert(1)</script>',
+        silhouette: '<use href="https://evil">',
+        silhouetteColor: 'url(javascript:evil)',
+        opacity: 99,
+        scale: -4,
+        positionX: Infinity,
+        positionY: -999,
+      },
+    },
+  });
+  assert.deepEqual(p.tiles, {
+    0: {
+      color: '#9b70b4',
+      silhouette: 'none',
+      silhouetteColor: '#171019',
+      opacity: 1,
+      scale: 0.2,
+      positionX: 0,
+      positionY: -100,
+    },
+  });
+});
+test('unknown tile override fields are rejected', () => {
+  assert.throws(
+    () =>
+      createProject({
+        tiles: { 0: { color: '#abcdef', onclick: 'alert(1)' } },
+      }),
+    /Unknown tile override key/
+  );
+});
+test('new projects declare the charcoal library and serialized identity includes it', () => {
+  const p = createProject({ seed: 'identity' });
+  assert.equal(p.motifLibrary, 'charcoal-v1');
+  assert.match(serializeProject(p), /"motifLibrary":"charcoal-v1"/);
+});
+test('phase 9 text and motion are canonical and bounded', () => {
+  const p = createProject({
+    text: {
+      content: 'Hello glass',
+      color: '#abcdef',
+      opacity: 80,
+      size: 96,
+      x: 20,
+      y: 75,
+      rotation: 30,
+      font: 'sans-serif',
+      align: 'end',
+      clip: true,
+    },
+    motion: { enabled: true, amount: 12, duration: 9 },
+  });
+  assert.equal(p.version, 4);
+  assert.deepEqual(p.text, {
+    content: 'Hello glass',
+    color: '#abcdef',
+    opacity: 80,
+    size: 96,
+    x: 20,
+    y: 75,
+    rotation: 30,
+    font: 'sans-serif',
+    align: 'end',
+    clip: true,
+  });
+  assert.deepEqual(p.motion, {
+    enabled: true,
+    amount: 12,
+    duration: 9,
+    mode: 'drift-v1',
+  });
+  assert.match(serializeProject(p), /"motion":\{"enabled":true/);
+});
