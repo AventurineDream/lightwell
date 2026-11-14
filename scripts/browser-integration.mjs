@@ -1,36 +1,295 @@
-import assert from "node:assert/strict";
-import { access, mkdtemp } from "node:fs/promises";
-import { constants } from "node:fs";
-import { spawn, spawnSync } from "node:child_process";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+// Browser integration test (`npm run test:browser`). Serves the repo root with
+// `python3 -m http.server` on 127.0.0.1:4187, opens it in headless Chrome/Chromium with
+// DevTools on port 9223, and drives the real UI over the DevTools protocol: tile hit
+// testing across geometries, undo grouping, lazy charcoal assets, Save/Open round trip,
+// selection clamping, text/motion layers, and self-contained SVG export.
+// Requires python3, a Chrome/Chromium binary (CHROME_PATH or PATH), both ports free, and a
+// Node with global fetch and WebSocket (Node 22+). Any failed assertion or startup error
+// rejects the top-level await, so the process exits non-zero; Chrome and the server are
+// killed in `finally`. The temporary Chrome profile directory is not removed.
+import assert from 'node:assert/strict';
+import { access, mkdtemp } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
-const root=new URL("../",import.meta.url).pathname,port=4187,profile=await mkdtemp(join(tmpdir(),"lightwell-browser-"));
-async function executable(){const candidates=[process.env.CHROME_PATH,"google-chrome","google-chrome-stable","chromium","chromium-browser","/usr/bin/google-chrome","/usr/bin/chromium"].filter(Boolean);for(const name of candidates){if(name.includes("/")){try{await access(name,constants.X_OK);return name}catch{}}else if(spawnSync("sh",["-c",`command -v ${name}`],{encoding:"utf8"}).status===0)return name}throw new Error(`No Chrome/Chromium executable found. Tried: ${candidates.join(", ")}`)}
-const chromePath=await executable(),logs=process.env.RUNNER_TEMP||tmpdir();let chromeErr="",serverErr="";
-const server=spawn("python3",["-m","http.server",String(port),"--bind","127.0.0.1"],{cwd:root,stdio:["ignore","ignore","pipe"]});server.stderr.on("data",x=>serverErr+=x);
-const chrome=spawn(chromePath,["--headless=new","--no-sandbox","--disable-dev-shm-usage","--window-size=1600,1600",`--user-data-dir=${profile}`,"--remote-debugging-address=127.0.0.1","--remote-debugging-port=9223",`http://127.0.0.1:${port}`],{stdio:["ignore","ignore","pipe"]});chrome.stderr.on("data",x=>chromeErr+=x);
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-try{
- let target;for(let i=0;i<100&&!target;i++){if(chrome.exitCode!==null)throw new Error(`Chrome exited early (code ${chrome.exitCode}): ${chromeErr.trim().slice(-1200)}`);if(server.exitCode!==null)throw new Error(`HTTP server exited early (code ${server.exitCode}): ${serverErr.trim().slice(-800)}`);await sleep(100);try{target=(await(await fetch("http://127.0.0.1:9223/json")).json()).find(x=>x.type==="page")}catch{}}
- if(!target)throw new Error(`Chrome DevTools did not start with ${chromePath}. stderr: ${chromeErr.trim().slice(-1200)}`);
- const ws=new WebSocket(target.webSocketDebuggerUrl);await new Promise((r,j)=>{ws.onopen=r;ws.onerror=j});let id=0,pending=new Map;ws.onmessage=e=>{const x=JSON.parse(e.data);if(x.id){pending.get(x.id)?.(x);pending.delete(x.id)}};
- const send=(method,params={})=>new Promise((resolve,reject)=>{const n=++id;pending.set(n,x=>x.error?reject(Error(x.error.message)):resolve(x.result));ws.send(JSON.stringify({id:n,method,params}))});
- const evaluate=async expression=>{const x=await send("Runtime.evaluate",{expression,awaitPromise:true,returnByValue:true});if(x.exceptionDetails)throw Error(x.exceptionDetails.exception?.description||x.exceptionDetails.text);return x.result.value};
- for(let i=0;i<100&&!(await evaluate("document.querySelectorAll('.tile').length"));i++)await sleep(50);assert.ok(await evaluate("document.querySelectorAll('.tile').length>=5"),"preview renders");
- const clickEveryTile=async label=>{const points=await evaluate(`(()=>[...stage.querySelectorAll('.tile')].map(t=>{const p=t.querySelector('polygon'),a=[...p.points],local=new DOMPoint(a.reduce((n,x)=>n+x.x,0)/a.length,a.reduce((n,x)=>n+x.y,0)/a.length),q=local.matrixTransform(p.getScreenCTM()),hit=document.elementFromPoint(q.x,q.y);if(hit?.closest('.tile')!==t)throw Error('Overlay intercepted tile '+t.dataset.tile);return{id:+t.dataset.tile,x:q.x,y:q.y}}))()`);for(const p of points){await send("Input.dispatchMouseEvent",{type:"mouseMoved",x:p.x,y:p.y});await send("Input.dispatchMouseEvent",{type:"mousePressed",x:p.x,y:p.y,button:"left",clickCount:1});await send("Input.dispatchMouseEvent",{type:"mouseReleased",x:p.x,y:p.y,button:"left",clickCount:1});assert.equal(await evaluate("document.querySelector('.tile.selected')?.dataset.tile"),String(p.id),`${label}: tile ${p.id} clickable`)}};
- for(const scenario of [{seed:"click-portrait",count:5,orientation:"portrait"},{seed:"click-dense",count:70,orientation:"portrait"},{seed:"click-landscape",count:32,orientation:"landscape"}]){await evaluate(`seed.value=${JSON.stringify(scenario.seed)};count.value=${scenario.count};${scenario.orientation}.click();generate.click();new Promise(r=>setTimeout(r,120))`);await clickEveryTile(`${scenario.seed}/${scenario.count}/${scenario.orientation}`)}
- // Continuous slider input is one undo step.
- const hueBefore=await evaluate("+hue.value");await evaluate("hue.dispatchEvent(new PointerEvent('pointerdown'));hue.value='111';hue.dispatchEvent(new Event('input',{bubbles:true}));hue.value='112';hue.dispatchEvent(new Event('input',{bubbles:true}));hue.dispatchEvent(new Event('change',{bubbles:true}));new Promise(r=>setTimeout(r,80))");assert.equal(await evaluate("+hue.value"),112);await evaluate("undo.click();new Promise(r=>setTimeout(r,80))");assert.equal(await evaluate("+hue.value"),hueBefore,"continuous slider undoes in one step");
- // Global material edit and undo.
- const micaBefore=await evaluate("+document.getElementById('mica').value");await evaluate("document.getElementById('mica').dispatchEvent(new PointerEvent('pointerdown'));document.getElementById('mica').value='61';document.getElementById('mica').dispatchEvent(new Event('input',{bubbles:true}));document.getElementById('mica').dispatchEvent(new Event('change',{bubbles:true}));new Promise(r=>setTimeout(r,80))");assert.equal(await evaluate("+document.getElementById('mica').value"),61);await evaluate("undo.click();new Promise(r=>setTimeout(r,80))");assert.equal(await evaluate("+document.getElementById('mica').value"),micaBefore,"global material edit undoes");
- // Charcoal lazy loading and real hit testing through overlay.
- await evaluate("tileSilhouette.value='muse';tileSilhouette.dispatchEvent(new Event('change'));new Promise(r=>setTimeout(r,200))");assert.ok(await evaluate("stage.innerHTML.includes('data:image/png;base64')"),"charcoal preview loads lazily");await clickEveryTile("charcoal overlay");await evaluate("undo.click();new Promise(r=>setTimeout(r,80));redo.click();new Promise(r=>setTimeout(r,180))");await clickEveryTile("after undo/redo");
- // Save/Open through the UI File input.
- const saved=await evaluate(`(async()=>{window.__saved=null;const old=URL.createObjectURL;URL.createObjectURL=b=>(window.__saved=b,'blob:test');HTMLAnchorElement.prototype.click=function(){};saveProject.click();const text=await window.__saved.text();URL.createObjectURL=old;return text})()`);await evaluate("seed.value='mutated';generate.click();new Promise(r=>setTimeout(r,80))");assert.equal(await evaluate("seed.value"),"mutated");await evaluate(`(()=>{const f=new File([${JSON.stringify(saved)}],'roundtrip.lightwell.json',{type:'application/json'}),d=new DataTransfer();d.items.add(f);Object.defineProperty(projectFile,'files',{value:d.files,configurable:true});projectFile.dispatchEvent(new Event('change',{bubbles:true}));return new Promise(r=>setTimeout(r,150))})()`);assert.equal(await evaluate("seed.value"),JSON.parse(saved).geometry.seed,"Save/Open round trip restores state");
- // Smaller loaded geometry clamps selection.
- await evaluate("count.value=70;generate.click();new Promise(r=>setTimeout(r,200))");await evaluate("stage.querySelector('.tile[data-tile=\"60\"]').dispatchEvent(new MouseEvent('click',{bubbles:true}));count.value=5;count.dispatchEvent(new Event('change',{bubbles:true}));new Promise(r=>setTimeout(r,150))");assert.ok(await evaluate("+document.querySelector('.tile.selected').dataset.tile<5"),"selection stays valid after smaller geometry");
- // Phase 9 text and motion controls render, undo, and export.
- await evaluate("textContent.value='Phase Nine';textContent.dispatchEvent(new Event('change',{bubbles:true}));motionEnabled.checked=true;motionEnabled.dispatchEvent(new Event('change',{bubbles:true}));new Promise(r=>setTimeout(r,120))");assert.ok(await evaluate("stage.querySelector('[data-lightwell-layer=text] text')?.textContent==='Phase Nine'"),"panel text renders");assert.ok(await evaluate("stage.querySelector('animateTransform')!==null"),"motion renders in preview");await evaluate("undo.click();new Promise(r=>setTimeout(r,100))");assert.equal(await evaluate("stage.querySelector('animateTransform')===null"),true,"motion toggle undoes");await evaluate("redo.click();new Promise(r=>setTimeout(r,100))");assert.equal(await evaluate("stage.querySelector('animateTransform')!==null"),true,"motion toggle redoes");
- const result=await evaluate("import('./src/render/project-svg.js').then(async m=>{const s=await m.renderProjectSVG((await import('./src/model/schema.js')).createProject({tiles:{'0':{silhouette:'muse'}}}));return [s.includes('data:image/png;base64'),s.match(/data:image\\/png;base64/g)?.length]})");assert.deepEqual(result,[true,1],"browser export is self-contained and used-only");console.log(`browser integration passed (${chromePath})`);ws.close();
-}finally{chrome.kill();server.kill()}
+const root = new URL('../', import.meta.url).pathname,
+  port = 4187,
+  profile = await mkdtemp(join(tmpdir(), 'lightwell-browser-'));
+/** First usable browser: CHROME_PATH, then common names on PATH, then absolute paths; throws listing what was tried. */
+async function executable() {
+  const candidates = [
+    process.env.CHROME_PATH,
+    'google-chrome',
+    'google-chrome-stable',
+    'chromium',
+    'chromium-browser',
+    '/usr/bin/google-chrome',
+    '/usr/bin/chromium',
+  ].filter(Boolean);
+  for (const name of candidates) {
+    if (name.includes('/')) {
+      try {
+        await access(name, constants.X_OK);
+        return name;
+      } catch {}
+    } else if (
+      spawnSync('sh', ['-c', `command -v ${name}`], { encoding: 'utf8' })
+        .status === 0
+    )
+      return name;
+  }
+  throw new Error(
+    `No Chrome/Chromium executable found. Tried: ${candidates.join(', ')}`
+  );
+}
+const chromePath = await executable(),
+  logs = process.env.RUNNER_TEMP || tmpdir();
+let chromeErr = '',
+  serverErr = '';
+const server = spawn(
+  'python3',
+  ['-m', 'http.server', String(port), '--bind', '127.0.0.1'],
+  { cwd: root, stdio: ['ignore', 'ignore', 'pipe'] }
+);
+server.stderr.on('data', (x) => (serverErr += x));
+const chrome = spawn(
+  chromePath,
+  [
+    '--headless=new',
+    '--no-sandbox',
+    '--disable-dev-shm-usage',
+    '--window-size=1600,1600',
+    `--user-data-dir=${profile}`,
+    '--remote-debugging-address=127.0.0.1',
+    '--remote-debugging-port=9223',
+    `http://127.0.0.1:${port}`,
+  ],
+  { stdio: ['ignore', 'ignore', 'pipe'] }
+);
+chrome.stderr.on('data', (x) => (chromeErr += x));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+try {
+  // Poll up to ~10 s for the DevTools page target, failing fast if Chrome or the server dies.
+  let target;
+  for (let i = 0; i < 100 && !target; i++) {
+    if (chrome.exitCode !== null)
+      throw new Error(
+        `Chrome exited early (code ${chrome.exitCode}): ${chromeErr.trim().slice(-1200)}`
+      );
+    if (server.exitCode !== null)
+      throw new Error(
+        `HTTP server exited early (code ${server.exitCode}): ${serverErr.trim().slice(-800)}`
+      );
+    await sleep(100);
+    try {
+      target = (await (await fetch('http://127.0.0.1:9223/json')).json()).find(
+        (x) => x.type === 'page'
+      );
+    } catch {}
+  }
+  if (!target)
+    throw new Error(
+      `Chrome DevTools did not start with ${chromePath}. stderr: ${chromeErr.trim().slice(-1200)}`
+    );
+  const ws = new WebSocket(target.webSocketDebuggerUrl);
+  await new Promise((r, j) => {
+    ws.onopen = r;
+    ws.onerror = j;
+  });
+  let id = 0,
+    pending = new Map();
+  ws.onmessage = (e) => {
+    const x = JSON.parse(e.data);
+    if (x.id) {
+      pending.get(x.id)?.(x);
+      pending.delete(x.id);
+    }
+  };
+  /** Sends one DevTools command; resolves with its result, rejects with its error message. */
+  const send = (method, params = {}) =>
+    new Promise((resolve, reject) => {
+      const n = ++id;
+      pending.set(n, (x) =>
+        x.error ? reject(Error(x.error.message)) : resolve(x.result)
+      );
+      ws.send(JSON.stringify({ id: n, method, params }));
+    });
+  /** Evaluates `expression` in the page (awaiting promises) and returns its value; page exceptions throw. */
+  const evaluate = async (expression) => {
+    const x = await send('Runtime.evaluate', {
+      expression,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    if (x.exceptionDetails)
+      throw Error(
+        x.exceptionDetails.exception?.description || x.exceptionDetails.text
+      );
+    return x.result.value;
+  };
+  for (
+    let i = 0;
+    i < 100 && !(await evaluate("document.querySelectorAll('.tile').length"));
+    i++
+  )
+    await sleep(50);
+  assert.ok(
+    await evaluate("document.querySelectorAll('.tile').length>=5"),
+    'preview renders'
+  );
+  /**
+   * Clicks each tile at the mean of its polygon's vertices with real mouse events and asserts
+   * that tile became selected. Before any click, throws if one of those points is covered by
+   * another element (an overlay intercepting clicks).
+   */
+  const clickEveryTile = async (label) => {
+    const points = await evaluate(
+      `(()=>[...stage.querySelectorAll('.tile')].map(t=>{const p=t.querySelector('polygon'),a=[...p.points],local=new DOMPoint(a.reduce((n,x)=>n+x.x,0)/a.length,a.reduce((n,x)=>n+x.y,0)/a.length),q=local.matrixTransform(p.getScreenCTM()),hit=document.elementFromPoint(q.x,q.y);if(hit?.closest('.tile')!==t)throw Error('Overlay intercepted tile '+t.dataset.tile);return{id:+t.dataset.tile,x:q.x,y:q.y}}))()`
+    );
+    for (const p of points) {
+      await send('Input.dispatchMouseEvent', {
+        type: 'mouseMoved',
+        x: p.x,
+        y: p.y,
+      });
+      await send('Input.dispatchMouseEvent', {
+        type: 'mousePressed',
+        x: p.x,
+        y: p.y,
+        button: 'left',
+        clickCount: 1,
+      });
+      await send('Input.dispatchMouseEvent', {
+        type: 'mouseReleased',
+        x: p.x,
+        y: p.y,
+        button: 'left',
+        clickCount: 1,
+      });
+      assert.equal(
+        await evaluate(
+          "document.querySelector('.tile.selected')?.dataset.tile"
+        ),
+        String(p.id),
+        `${label}: tile ${p.id} clickable`
+      );
+    }
+  };
+  for (const scenario of [
+    { seed: 'click-portrait', count: 5, orientation: 'portrait' },
+    { seed: 'click-dense', count: 70, orientation: 'portrait' },
+    { seed: 'click-landscape', count: 32, orientation: 'landscape' },
+  ]) {
+    await evaluate(
+      `seed.value=${JSON.stringify(scenario.seed)};count.value=${scenario.count};${scenario.orientation}.click();generate.click();new Promise(r=>setTimeout(r,120))`
+    );
+    await clickEveryTile(
+      `${scenario.seed}/${scenario.count}/${scenario.orientation}`
+    );
+  }
+  // Continuous slider input is one undo step.
+  const hueBefore = await evaluate('+hue.value');
+  await evaluate(
+    "hue.dispatchEvent(new PointerEvent('pointerdown'));hue.value='111';hue.dispatchEvent(new Event('input',{bubbles:true}));hue.value='112';hue.dispatchEvent(new Event('input',{bubbles:true}));hue.dispatchEvent(new Event('change',{bubbles:true}));new Promise(r=>setTimeout(r,80))"
+  );
+  assert.equal(await evaluate('+hue.value'), 112);
+  await evaluate('undo.click();new Promise(r=>setTimeout(r,80))');
+  assert.equal(
+    await evaluate('+hue.value'),
+    hueBefore,
+    'continuous slider undoes in one step'
+  );
+  // Global material edit and undo.
+  const micaBefore = await evaluate("+document.getElementById('mica').value");
+  await evaluate(
+    "document.getElementById('mica').dispatchEvent(new PointerEvent('pointerdown'));document.getElementById('mica').value='61';document.getElementById('mica').dispatchEvent(new Event('input',{bubbles:true}));document.getElementById('mica').dispatchEvent(new Event('change',{bubbles:true}));new Promise(r=>setTimeout(r,80))"
+  );
+  assert.equal(await evaluate("+document.getElementById('mica').value"), 61);
+  await evaluate('undo.click();new Promise(r=>setTimeout(r,80))');
+  assert.equal(
+    await evaluate("+document.getElementById('mica').value"),
+    micaBefore,
+    'global material edit undoes'
+  );
+  // Charcoal lazy loading and real hit testing through overlay.
+  await evaluate(
+    "tileSilhouette.value='muse';tileSilhouette.dispatchEvent(new Event('change'));new Promise(r=>setTimeout(r,200))"
+  );
+  assert.ok(
+    await evaluate("stage.innerHTML.includes('data:image/png;base64')"),
+    'charcoal preview loads lazily'
+  );
+  await clickEveryTile('charcoal overlay');
+  await evaluate(
+    'undo.click();new Promise(r=>setTimeout(r,80));redo.click();new Promise(r=>setTimeout(r,180))'
+  );
+  await clickEveryTile('after undo/redo');
+  // Save/Open through the UI File input.
+  const saved = await evaluate(
+    `(async()=>{window.__saved=null;const old=URL.createObjectURL;URL.createObjectURL=b=>(window.__saved=b,'blob:test');HTMLAnchorElement.prototype.click=function(){};saveProject.click();const text=await window.__saved.text();URL.createObjectURL=old;return text})()`
+  );
+  await evaluate(
+    "seed.value='mutated';generate.click();new Promise(r=>setTimeout(r,80))"
+  );
+  assert.equal(await evaluate('seed.value'), 'mutated');
+  await evaluate(
+    `(()=>{const f=new File([${JSON.stringify(saved)}],'roundtrip.lightwell.json',{type:'application/json'}),d=new DataTransfer();d.items.add(f);Object.defineProperty(projectFile,'files',{value:d.files,configurable:true});projectFile.dispatchEvent(new Event('change',{bubbles:true}));return new Promise(r=>setTimeout(r,150))})()`
+  );
+  assert.equal(
+    await evaluate('seed.value'),
+    JSON.parse(saved).geometry.seed,
+    'Save/Open round trip restores state'
+  );
+  // Smaller loaded geometry clamps selection.
+  await evaluate(
+    'count.value=70;generate.click();new Promise(r=>setTimeout(r,200))'
+  );
+  await evaluate(
+    "stage.querySelector('.tile[data-tile=\"60\"]').dispatchEvent(new MouseEvent('click',{bubbles:true}));count.value=5;count.dispatchEvent(new Event('change',{bubbles:true}));new Promise(r=>setTimeout(r,150))"
+  );
+  assert.ok(
+    await evaluate("+document.querySelector('.tile.selected').dataset.tile<5"),
+    'selection stays valid after smaller geometry'
+  );
+  // Phase 9 text and motion controls render, undo, and export.
+  await evaluate(
+    "textContent.value='Phase Nine';textContent.dispatchEvent(new Event('change',{bubbles:true}));motionEnabled.checked=true;motionEnabled.dispatchEvent(new Event('change',{bubbles:true}));new Promise(r=>setTimeout(r,120))"
+  );
+  assert.ok(
+    await evaluate(
+      "stage.querySelector('[data-lightwell-layer=text] text')?.textContent==='Phase Nine'"
+    ),
+    'panel text renders'
+  );
+  assert.ok(
+    await evaluate("stage.querySelector('animateTransform')!==null"),
+    'motion renders in preview'
+  );
+  await evaluate('undo.click();new Promise(r=>setTimeout(r,100))');
+  assert.equal(
+    await evaluate("stage.querySelector('animateTransform')===null"),
+    true,
+    'motion toggle undoes'
+  );
+  await evaluate('redo.click();new Promise(r=>setTimeout(r,100))');
+  assert.equal(
+    await evaluate("stage.querySelector('animateTransform')!==null"),
+    true,
+    'motion toggle redoes'
+  );
+  const result = await evaluate(
+    "import('./src/render/project-svg.js').then(async m=>{const s=await m.renderProjectSVG((await import('./src/model/schema.js')).createProject({tiles:{'0':{silhouette:'muse'}}}));return [s.includes('data:image/png;base64'),s.match(/data:image\\/png;base64/g)?.length]})"
+  );
+  assert.deepEqual(
+    result,
+    [true, 1],
+    'browser export is self-contained and used-only'
+  );
+  console.log(`browser integration passed (${chromePath})`);
+  ws.close();
+} finally {
+  chrome.kill();
+  server.kill();
+}
