@@ -1,7 +1,63 @@
-import test from"node:test";import assert from"node:assert/strict";import{silhouettes}from"../src/generator.js";import{motifDefinitions}from"../src/catalog/motifs.js";import{moveTileSelection}from"../src/ui/catalog.js";
-test("motif catalog is the single complete definition source",()=>{assert.equal(motifDefinitions.length,silhouettes.length);assert.deepEqual(motifDefinitions.map(x=>[x.id,x.label]),silhouettes);assert.equal(new Set(motifDefinitions.map(x=>x.id)).size,motifDefinitions.length)});
-test("tile arrow navigation wraps in both directions",()=>{assert.equal(moveTileSelection(0,"ArrowLeft",5),4);assert.equal(moveTileSelection(4,"ArrowRight",5),0);assert.equal(moveTileSelection(2,"Enter",5),2)});
-test("HTML no longer duplicates motif options",async()=>{const html=await import("node:fs/promises").then(fs=>fs.readFile(new URL("../index.html",import.meta.url),"utf8"));assert.match(html,/id="globalSilhouette"><\/select>/);assert.match(html,/id="tileSilhouette"><\/select>/);assert.equal((html.match(/<option value="leaf"/g)||[]).length,0);assert.match(html,/aria-live="polite"/)});
-test("charcoal overhaul exposes all 37 review-approved motifs",()=>{assert.equal(motifDefinitions.filter(x=>x.id!=="none").length,37);assert.equal(motifDefinitions.at(-2).id,"muse");assert.equal(motifDefinitions.at(-1).id,"husky")});
-test("one manifest drives IDs labels libraries and assets",async()=>{const {motifManifest,motifIds,CURRENT_LIBRARY,LEGACY_LIBRARY}=await import("../src/catalog/motif-manifest.js");assert.deepEqual(motifDefinitions.map(x=>x.id),motifIds);assert.ok(motifManifest.find(x=>x.id==="leaf").libraries[LEGACY_LIBRARY]);assert.match(motifManifest.find(x=>x.id==="leaf").libraries[CURRENT_LIBRARY].assetUrl,/leaf\.png$/);assert.equal(motifManifest.find(x=>x.id==="muse").libraries[LEGACY_LIBRARY],undefined)});
-test("motif definitions are library-aware",async()=>{const {motifDefinitionsForLibrary}=await import("../src/catalog/motifs.js");const legacy=motifDefinitionsForLibrary("legacy-vector-v1");assert.ok(legacy.some(x=>x.id==="leaf"));assert.ok(!legacy.some(x=>x.id==="muse"));assert.ok(!legacy.some(x=>x.id==="husky"))});
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { silhouettes } from '../src/generator.js';
+import { motifDefinitions } from '../src/catalog/motifs.js';
+import { moveTileSelection } from '../src/ui/catalog.js';
+test('motif catalog is the single complete definition source', () => {
+  assert.equal(motifDefinitions.length, silhouettes.length);
+  assert.deepEqual(
+    motifDefinitions.map((x) => [x.id, x.label]),
+    silhouettes
+  );
+  assert.equal(
+    new Set(motifDefinitions.map((x) => x.id)).size,
+    motifDefinitions.length
+  );
+});
+test('tile arrow navigation wraps in both directions', () => {
+  assert.equal(moveTileSelection(0, 'ArrowLeft', 5), 4);
+  assert.equal(moveTileSelection(4, 'ArrowRight', 5), 0);
+  assert.equal(moveTileSelection(2, 'Enter', 5), 2);
+});
+test('HTML no longer duplicates motif options', async () => {
+  const html = await import('node:fs/promises').then((fs) =>
+    fs.readFile(new URL('../index.html', import.meta.url), 'utf8')
+  );
+  assert.match(html, /id="globalSilhouette"><\/select>/);
+  assert.match(html, /id="tileSilhouette"><\/select>/);
+  assert.equal((html.match(/<option value="leaf"/g) || []).length, 0);
+  assert.match(html, /aria-live="polite"/);
+});
+test('charcoal overhaul exposes all 37 review-approved motifs', () => {
+  assert.equal(motifDefinitions.filter((x) => x.id !== 'none').length, 37);
+  assert.equal(motifDefinitions.at(-2).id, 'muse');
+  assert.equal(motifDefinitions.at(-1).id, 'husky');
+});
+test('one manifest drives IDs labels libraries and assets', async () => {
+  const { motifManifest, motifIds, CURRENT_LIBRARY, LEGACY_LIBRARY } =
+    await import('../src/catalog/motif-manifest.js');
+  assert.deepEqual(
+    motifDefinitions.map((x) => x.id),
+    motifIds
+  );
+  assert.ok(
+    motifManifest.find((x) => x.id === 'leaf').libraries[LEGACY_LIBRARY]
+  );
+  assert.match(
+    motifManifest.find((x) => x.id === 'leaf').libraries[CURRENT_LIBRARY]
+      .assetUrl,
+    /leaf\.png$/
+  );
+  assert.equal(
+    motifManifest.find((x) => x.id === 'muse').libraries[LEGACY_LIBRARY],
+    undefined
+  );
+});
+test('motif definitions are library-aware', async () => {
+  const { motifDefinitionsForLibrary } =
+    await import('../src/catalog/motifs.js');
+  const legacy = motifDefinitionsForLibrary('legacy-vector-v1');
+  assert.ok(legacy.some((x) => x.id === 'leaf'));
+  assert.ok(!legacy.some((x) => x.id === 'muse'));
+  assert.ok(!legacy.some((x) => x.id === 'husky'));
+});

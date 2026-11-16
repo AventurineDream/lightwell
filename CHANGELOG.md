@@ -1,5 +1,42 @@
 # Changelog
 
+Changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); historical beta wording is retained below.
+
+## [Unreleased]
+
+### Added
+
+- Practical setup/command guidance, a documentation index, architecture overview, and incremental adoption decision.
+- A lightweight staged-source reminder ownership hook and safe per-clone installer, reused in existing CI.
+
+### Changed
+
+- Adopted formatter check is part of the handoff and CI gates; no blanket semantic lint is introduced.
+
+### Added — v0.2 in development
+
+- Add schema v4 panel text placement with full typography and transform controls.
+- Add deterministic per-tile glass drift that exports as self-contained animated SVG.
+- Migrate v3 projects to empty text and disabled motion without changing existing artwork.
+
+- Make CI browser startup diagnosable and portable across Chrome/Chromium executable names.
+- Enforce strict charcoal-vs-legacy rendering and library-aware motif pickers.
+- Add real pointer hit testing, slider/history, Save/Open, smaller-geometry, lazy-load, and export browser coverage.
+- Document the deterministic schema v2 migration ambiguity.
+
+- Version the motif rendering contract: new projects use `charcoal-v1`; v1/v2 projects migrate to `legacy-vector-v1`.
+- Consolidate IDs, labels, revisions, render types, and asset URLs in one manifest.
+- Load local charcoal PNGs lazily and embed only motifs used by a self-contained SVG export.
+- Validate alpha-mask structure and dimensions for every charcoal asset.
+- Add race-safe preview rendering, browser integration coverage, and CI.
+
+- Make the versioned project model and transactional history the live editor's single source of truth.
+- Route geometry, orientation, materials, global motif operations, and per-tile edits through undoable commands; coalesce continuous controls into one undo step.
+- Validate every loaded tile override and block unknown fields, unsafe colors, unknown motif IDs, and out-of-range transforms.
+- Render composed SVG directly into stable background, glass, mica, motifs, lead, lighting, and frame groups.
+- Add optional per-instance SVG ID namespacing without changing deterministic standalone output.
+- Add validated project Save/Open. The earlier beta note saying projects could not be saved is no longer current on main.
+
 ## v0.1.1 - 2026-09-18
 
 - Correct documentation for local operation, fonts, export, and SVG imports.
@@ -25,26 +62,3 @@ Lightwell's first public beta.
 
 The silhouette library is usable but still uneven. A coherent art-nouveau replacement set is planned for the first follow-up update. The app currently exports SVG only and does not save projects between browser sessions.
 
-## Unreleased - v0.2 foundation
-
-- Add schema v4 panel text placement with full typography and transform controls.
-- Add deterministic per-tile glass drift that exports as self-contained animated SVG.
-- Migrate v3 projects to empty text and disabled motion without changing existing artwork.
-
-- Make CI browser startup diagnosable and portable across Chrome/Chromium executable names.
-- Enforce strict charcoal-vs-legacy rendering and library-aware motif pickers.
-- Add real pointer hit testing, slider/history, Save/Open, smaller-geometry, lazy-load, and export browser coverage.
-- Document the deterministic schema v2 migration ambiguity.
-
-- Version the motif rendering contract: new projects use `charcoal-v1`; v1/v2 projects migrate to `legacy-vector-v1`.
-- Consolidate IDs, labels, revisions, render types, and asset URLs in one manifest.
-- Load local charcoal PNGs lazily and embed only motifs used by a self-contained SVG export.
-- Validate alpha-mask structure and dimensions for every charcoal asset.
-- Add race-safe preview rendering, browser integration coverage, and CI.
-
-- Make the versioned project model and transactional history the live editor's single source of truth.
-- Route geometry, orientation, materials, global motif operations, and per-tile edits through undoable commands; coalesce continuous controls into one undo step.
-- Validate every loaded tile override and block unknown fields, unsafe colors, unknown motif IDs, and out-of-range transforms.
-- Render composed SVG directly into stable background, glass, mica, motifs, lead, lighting, and frame groups.
-- Add optional per-instance SVG ID namespacing without changing deterministic standalone output.
-- Add validated project Save/Open. The earlier beta note saying projects could not be saved is no longer current on main.
