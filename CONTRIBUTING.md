@@ -3,7 +3,7 @@
 Lightwell is a dependency-free browser app. Clone the repository and serve its root with any static HTTP server.
 
 ```sh
-python3 -m http.server 4174
+python3 -m http.server 4173
 ```
 
 Run the tests with Node 20 or newer:
