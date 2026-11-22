@@ -3,7 +3,9 @@
 // invalid JSON, prototype-pollution keys, deep nesting and too many tile overrides.
 import { migrateProject } from '../model/migrations.js';
 import { normalizeProject, serializeProject } from '../model/schema.js';
+/** Vendor MIME type for downloaded projects. The `schema` field inside the file is the authoritative check. */
 export const PROJECT_MIME = 'application/vnd.lightwell.project+json';
+/** File extension for saved projects; parseProject() takes text only and never reads the name. */
 export const PROJECT_EXTENSION = '.lightwell.json';
 const forbidden = new Set(['__proto__', 'prototype', 'constructor']);
 function inspect(value, depth = 0) {

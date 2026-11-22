@@ -33,6 +33,7 @@ export function projectHash(project) {
  *   hashed into the element-id prefix so the same project can appear more than once on a page;
  *   `fetcher` replaces `fetch` for loading motif assets (tests).
  * @throws {Error} when a motif asset cannot be fetched.
+ * @returns {Promise<string>} SVG markup; equal projects and namespaces give identical text.
  */
 export async function renderProjectSVG(
   input,

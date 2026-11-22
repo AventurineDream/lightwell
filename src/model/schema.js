@@ -7,7 +7,12 @@ import {
   LEGACY_LIBRARY,
   hasMotif,
 } from '../catalog/motif-manifest.js';
+/** Schema id stored in every saved project; normalizeProject() rejects any other value. */
 export const PROJECT_SCHEMA = 'lightwell.project';
+/**
+ * Current on-disk project version. Bump it together with a migrateProject() step when the
+ * saved shape changes; normalizeProject() accepts only this exact version.
+ */
 export const PROJECT_VERSION = 4;
 
 const defaults = Object.freeze({
@@ -108,6 +113,8 @@ export function normalizeTileOverrides(
  * (for example pieceCount 5-70, leadWidth 3-16, seed truncated to 256 chars, text to 500 chars).
  * Accepts both nested (`text`, `motion`) and flat (`textContent`, `motionEnabled`) input.
  * Never throws for bad values except via normalizeTileOverrides().
+ * @param {object} [input] - partial project; fields outside the schema are dropped.
+ * @returns {object} normalized project of the current schema version.
  */
 export function createProject(input = {}) {
   const d = { ...defaults, ...input };
@@ -207,6 +214,8 @@ export function createProject(input = {}) {
  * Re-validates a saved project of the current schema.
  * @throws {TypeError} when `schema` or `version` is not the current PROJECT_SCHEMA / PROJECT_VERSION;
  *   older versions must go through migrateProject() first.
+ * @param {*} value - parsed project object; must already be at the current version.
+ * @returns {object} normalized project of the current schema version.
  */
 export function normalizeProject(value = {}) {
   if (value.schema !== PROJECT_SCHEMA || value.version !== PROJECT_VERSION)
@@ -237,6 +246,8 @@ export function normalizeProject(value = {}) {
 
 /**
  * Maps a project to makePanel() settings. Portrait is 900x1100, landscape 1200x760.
+ * @param {object} project - any shape accepted by normalizeProject().
+ * @returns {object} settings for makePanel(), with mica and opacity taken from `material`.
  */
 export function panelOptions(project) {
   const p = normalizeProject(project),
