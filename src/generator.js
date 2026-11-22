@@ -202,6 +202,10 @@ const esc = (s) =>
   );
 const pts = (x) =>
   x.points.map((q) => `${q.x.toFixed(2)},${q.y.toFixed(2)}`).join(' ');
+/**
+ * Motif picker entries for the current library as `[id, label]` pairs, in manifest order.
+ * Legacy-only motifs are excluded so new projects cannot select them.
+ */
 export const silhouettes = motifManifest
   .filter((x) => x.libraries[CURRENT_LIBRARY])
   .map((x) => [x.id, x.label]);
@@ -299,6 +303,10 @@ function motif(
   if (mark.includes('class="missing-motif"')) return mark;
   return `<g class="motif" data-scale="${s}" data-x="${positionX}" data-y="${positionY}" transform="${transform}" filter="url(#motifInk)" style="paint-order:stroke fill" stroke="${color}" stroke-width="10" stroke-opacity="${Math.min(1, opacity * 0.38)}">${mark}</g>`;
 }
+/**
+ * Lead-line treatments as `[id, label]` pairs for the UI selector. The id is stored in saved
+ * projects (`leadStyle`), so renaming an id needs a migration.
+ */
 export const leadStyles = [
   ['ink', 'Ink'],
   ['lightning', 'Lightning'],
